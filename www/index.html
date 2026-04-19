@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Terassille</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" />
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
+</head>
+<body>
+
+  <div id="map"></div>
+
+  <!-- Top search bar -->
+  <div id="topbar">
+    <div id="search-row">
+      <div id="search-box">
+        <span class="search-icon">🔍</span>
+        <input id="search-input" type="text" autocomplete="off" autocorrect="off" spellcheck="false" oninput="onSearch(this.value)" />
+        <button id="search-clear" onclick="clearSearch()">✕</button>
+      </div>
+      <button class="icon-btn" onclick="getUserLocation()" title="Sijainti">📍</button>
+      <div class="lang-pills">
+        <button class="lang-pill active" id="lp-fi" onclick="switchLanguage('fi')">FI</button>
+        <button class="lang-pill" id="lp-en" onclick="switchLanguage('en')">EN</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Weather strip -->
+  <div id="weather-strip">
+    <span id="wx-icon">⛅</span>
+    <div class="wx-middle">
+      <div id="wx-text">Ladataan säätietoja...</div>
+      <div id="wx-rain-bar"><div id="wx-rain-fill"></div></div>
+    </div>
+    <span id="wx-temp">—</span>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="toast"></div>
+
+  <!-- Bottom sheet: terrace list -->
+  <div id="bottom-sheet">
+    <div id="sheet-handle"></div>
+    <div id="sheet-header">
+      <span id="sheet-title">Lähellä sinua</span>
+      <span id="sheet-count">0 terassia</span>
+    </div>
+    <div id="filter-row">
+      <button class="chip active" onclick="setFilter('all', this)">Kaikki</button>
+      <button class="chip" onclick="setFilter('sun', this)">☀ Aurinkoinen</button>
+      <button class="chip" onclick="setFilter('bar', this)">Baari</button>
+      <button class="chip" onclick="setFilter('cafe', this)">Kahvila</button>
+      <button class="chip" onclick="setFilter('restaurant', this)">Ravintola</button>
+    </div>
+    <div id="terrace-list">
+      <div id="empty-state">Paina 📍 hakeaksesi lähellä olevia terasseja</div>
+    </div>
+  </div>
+
+  <!-- Info panel: slides up on terrace tap -->
+  <div id="info-panel">
+    <div id="info-handle"></div>
+    <button id="info-close" onclick="closeInfo()">✕</button>
+    <div id="info-body">
+      <div id="info-header-row">
+        <div id="info-icon" class="sunny">🍺</div>
+        <div>
+          <div id="info-name">—</div>
+          <div id="info-subtitle">—</div>
+        </div>
+      </div>
+      <div id="info-stats">
+        <div class="istat">
+          <div class="istat-label" id="lbl-sun">Aurinko</div>
+          <div class="istat-val sunny" id="info-sun-val">—</div>
+        </div>
+        <div class="istat">
+          <div class="istat-label" id="lbl-dist">Etäisyys</div>
+          <div class="istat-val" id="info-dist-val">—</div>
+        </div>
+        <div class="istat">
+          <div class="istat-label" id="lbl-type">Tyyppi</div>
+          <div class="istat-val" id="info-type-val">—</div>
+        </div>
+      </div>
+      <div id="info-weather-row">
+        <span id="iw-icon">⛅</span>
+        <span id="iw-desc">—</span>
+        <span id="iw-temp">—</span>
+      </div>
+      <div id="sun-bar-wrap">
+        <div id="sun-bar-label">Auringon korkeuskulma 0°</div>
+        <div id="sun-bar"><div id="sun-fill"></div></div>
+      </div>
+      <button id="monitor-btn" onclick="toggleMonitoring()">👁 Seuraa tätä terassia</button>
+
+      <!-- Drink prices -->
+      <div id="price-section">
+        <div class="price-section-header">
+          <span class="price-section-title" id="price-title">Juomien hinnat</span>
+          <button id="add-drink-btn" onclick="showAddDrink()">+ Lisää juoma</button>
+        </div>
+        <div id="price-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Price edit modal -->
+  <div id="price-modal">
+    <div id="price-modal-box">
+      <div id="price-modal-title">Päivitä hinta</div>
+      <div id="price-modal-drink">—</div>
+      <input id="price-modal-input" type="number" inputmode="decimal" step="0.1" min="0" max="50" placeholder="esim. 7.50" />
+      <div id="price-modal-btns">
+        <button class="pm-btn pm-cancel" onclick="closePriceModal()">Peruuta</button>
+        <button class="pm-btn pm-save" onclick="savePriceModal()">Tallenna</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>

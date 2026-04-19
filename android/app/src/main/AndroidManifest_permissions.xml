@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  IMPORTANT: This is the required permissions block for AndroidManifest.xml
+  Add these lines BEFORE the <application> tag in:
+  android/app/src/main/AndroidManifest.xml
+-->
+
+<!--  Location permissions (required for geolocation) -->
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+<!-- Network (required for Overpass API calls) -->
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+<!-- Notifications -->
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+<uses-permission android:name="android.permission.VIBRATE" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
