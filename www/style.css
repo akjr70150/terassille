@@ -199,7 +199,9 @@ body {
   border-top: 0.5px solid rgba(0, 0, 0, 0.08);
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
-  max-height: 52vh;
+  height: var(--sheet-height, 48vh);
+  min-height: 110px;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -208,12 +210,15 @@ body {
 }
 
 #sheet-handle {
-  width: 36px; height: 3px;
-  background: rgba(0, 0, 0, 0.12);
-  border-radius: 2px;
-  margin: 10px auto 0;
+  width: 44px; height: 5px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+  margin: 10px auto 4px;
   flex-shrink: 0;
+  cursor: ns-resize;
+  touch-action: none;
 }
+#sheet-handle:hover { background: rgba(0,0,0,0.28); }
 
 #sheet-header {
   display: flex;
