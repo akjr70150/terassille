@@ -243,7 +243,7 @@ async function loadNearbyBuildings(lat, lon) {
 
   try {
     const ctrl = new AbortController();
-    const t    = setTimeout(() => ctrl.abort(), 28000);
+    const t    = setTimeout(() => ctrl.abort(), 40000);
     const res  = await fetchOverpass(q, ctrl.signal);
     clearTimeout(t);
     const data = await res.json();
@@ -313,24 +313,31 @@ function statusLabel(status) {
 // ── 8. Overpass fetch with mirror fallback & retry ────────────────────────────
 
 async function fetchOverpass(query, signal) {
-  for (let i = 0; i < OVERPASS_MIRRORS.length; i++) {
+  const mirrors = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter',
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  ];
+  let lastErr;
+  for (let i = 0; i < mirrors.length; i++) {
     try {
-      const url = OVERPASS_MIRRORS[i] + '?data=' + encodeURIComponent(query);
+      const url = mirrors[i] + '?data=' + encodeURIComponent(query);
       const res = await fetch(url, { signal });
       if (res.ok) return res;
       if (res.status === 429 || res.status === 503) {
-        // Rate limited — wait 2s before trying next mirror
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 3000));
         continue;
       }
-      throw new Error('HTTP ' + res.status);
+      lastErr = new Error('HTTP ' + res.status);
     } catch (e) {
       if (e.name === 'AbortError') throw e;
-      if (i === OVERPASS_MIRRORS.length - 1) throw e;
-      console.warn(`Overpass mirror ${i} failed, trying next...`);
+      lastErr = e;
+      console.warn('Overpass mirror ' + i + ' failed:', e.message);
+      if (i < mirrors.length - 1) await new Promise(r => setTimeout(r, 1000));
     }
   }
-  throw new Error('All Overpass mirrors failed');
+  throw lastErr || new Error('All Overpass mirrors failed');
 }
 
 
@@ -381,7 +388,7 @@ function initMap() {
     container:  'map',
     style:      'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
     center:     [userLon, userLat],
-    zoom: 14, pitch: 30, bearing: 0,
+    zoom: 14, pitch: 0, bearing: 0,
     trackResize: true,
   });
 
@@ -422,7 +429,7 @@ function add3DBuildings() {
 function onLocationSuccess(lat, lon) {
   userLat = lat; userLon = lon;
   showToast(T().located, 'success');
-  mapInstance.flyTo({ center: [userLon, userLat], zoom: 14, pitch: 30, duration: 1200 });
+  mapInstance.flyTo({ center: [userLon, userLat], zoom: 14, duration: 1200 });
   fetchWeather(userLat, userLon);
   loadNearbyBuildings(userLat, userLon);
   loadTerraces();
@@ -477,7 +484,7 @@ async function loadTerraces() {
 
   try {
     const ctrl = new AbortController();
-    const t    = setTimeout(() => ctrl.abort(), 28000);
+    const t    = setTimeout(() => ctrl.abort(), 40000);
     const res  = await fetchOverpass(q, ctrl.signal);
     clearTimeout(t);
     const data = await res.json();
@@ -636,7 +643,7 @@ function openInfo(index) {
   const typeName = T().types[tr.type] || tr.type;
 
   renderList();
-  mapInstance.flyTo({ center: [tr.lon, tr.lat], zoom: 16, pitch: 30, duration: 700 });
+  mapInstance.flyTo({ center: [tr.lon, tr.lat], zoom: 16, duration: 700 });
 
   const ic = document.getElementById('info-icon');
   ic.className = st; ic.textContent = typeIcon(tr.type);
