@@ -384,22 +384,44 @@ function updateWeatherStrip() {
 // ── 10. Map ───────────────────────────────────────────────────────────────────
 
 function initMap() {
-  mapInstance = new maplibregl.Map({
-    container:  'map',
-    style:      'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-    center:     [userLon, userLat],
-    zoom: 14, pitch: 0, bearing: 0,
-    trackResize: true,
-  });
+  // Ensure map container has dimensions before init
+  const container = document.getElementById('map');
+  if (!container || container.offsetHeight === 0) {
+    console.warn('Map container not ready, retrying...');
+    setTimeout(initMap, 200);
+    return;
+  }
 
-  mapInstance.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
-  setTimeout(() => mapInstance.resize(), 100);
-  setTimeout(() => mapInstance.resize(), 600);
+  try {
+    mapInstance = new maplibregl.Map({
+      container:  'map',
+      style:      'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+      center:     [userLon, userLat],
+      zoom: 14, pitch: 0, bearing: 0,
+      trackResize: true,
+      attributionControl: false,
+    });
 
-  mapInstance.on('load', () => {
-    add3DBuildings();
-    getUserLocation();
-  });
+    mapInstance.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+    mapInstance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
+
+    // Force resize after layout
+    setTimeout(() => { if (mapInstance) mapInstance.resize(); }, 100);
+    setTimeout(() => { if (mapInstance) mapInstance.resize(); }, 800);
+
+    mapInstance.on('load', () => {
+      console.log('Map loaded OK');
+      add3DBuildings();
+      setTimeout(() => getUserLocation(), 300);
+    });
+
+    mapInstance.on('error', (e) => {
+      console.warn('MapLibre error:', JSON.stringify(e));
+    });
+
+  } catch (e) {
+    console.error('Map init failed:', e);
+  }
 }
 
 function add3DBuildings() {
@@ -429,7 +451,9 @@ function add3DBuildings() {
 function onLocationSuccess(lat, lon) {
   userLat = lat; userLon = lon;
   showToast(T().located, 'success');
-  mapInstance.flyTo({ center: [userLon, userLat], zoom: 14, duration: 1200 });
+  if (mapInstance) {
+    mapInstance.flyTo({ center: [userLon, userLat], zoom: 14, duration: 1200 });
+  }
   fetchWeather(userLat, userLon);
   loadNearbyBuildings(userLat, userLon);
   loadTerraces();
@@ -448,22 +472,63 @@ function getUserLocation() {
 
   let settled = false;
 
-  function tryHigh() {
-    navigator.geolocation.getCurrentPosition(
-      pos  => { if (settled) return; settled = true; onLocationSuccess(pos.coords.latitude, pos.coords.longitude); },
-      ()   => { if (!settled) { settled = true; onLocationFallback(); } },
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
-    );
+  function done(lat, lon) {
+    if (settled) return;
+    settled = true;
+    onLocationSuccess(lat, lon);
   }
 
-  navigator.geolocation.getCurrentPosition(
-    pos => { settled = true; onLocationSuccess(pos.coords.latitude, pos.coords.longitude); },
-    ()  => { tryHigh(); },
-    { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 }
+  function fail() {
+    if (settled) return;
+    settled = true;
+    onLocationFallback();
+  }
+
+  // Strategy 1: watchPosition — keeps trying and gives best available fix.
+  // On Android/iOS this is the most reliable approach.
+  let watchId = null;
+  let gotCoarse = false;
+
+  watchId = navigator.geolocation.watchPosition(
+    pos => {
+      const { latitude: lat, longitude: lon, accuracy } = pos.coords;
+      console.log('Location fix:', lat, lon, 'accuracy:', accuracy + 'm');
+
+      // Accept any fix under 500m accuracy, or immediately accept if high accuracy
+      if (accuracy < 500 || accuracy < 100) {
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        done(lat, lon);
+      } else if (!gotCoarse) {
+        // Got a rough fix — use it but keep watching for better
+        gotCoarse = true;
+        userLat = lat; userLon = lon;
+      }
+    },
+    err => {
+      console.warn('watchPosition error:', err.code, err.message);
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      // Try one-shot high accuracy as fallback
+      navigator.geolocation.getCurrentPosition(
+        pos => done(pos.coords.latitude, pos.coords.longitude),
+        ()  => {
+          // If we got a coarse fix earlier, use that
+          if (gotCoarse) done(userLat, userLon);
+          else fail();
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    },
+    { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
   );
 
-  setTimeout(() => { if (!settled) tryHigh(); }, 2000);
-  setTimeout(() => { if (!settled) { settled = true; onLocationFallback(); } }, 25000);
+  // Hard fallback: if nothing after 20s, use coarse or Helsinki default
+  setTimeout(() => {
+    if (!settled) {
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (gotCoarse) done(userLat, userLon);
+      else fail();
+    }
+  }, 20000);
 }
 
 
@@ -643,7 +708,7 @@ function openInfo(index) {
   const typeName = T().types[tr.type] || tr.type;
 
   renderList();
-  mapInstance.flyTo({ center: [tr.lon, tr.lat], zoom: 16, duration: 700 });
+  if (mapInstance) mapInstance.flyTo({ center: [tr.lon, tr.lat], zoom: 16, duration: 700 });
 
   const ic = document.getElementById('info-icon');
   ic.className = st; ic.textContent = typeIcon(tr.type);
@@ -696,41 +761,30 @@ function closeInfo() {
 //  3. On iOS: must be installed as a PWA (Add to Home Screen) for notifications to work
 //  4. Show in-app toast as fallback when notifications aren't available
 
-let notifPermission = Notification?.permission || 'default';
+let notifPermission = 'default';
 
 async function requestNotifPermission() {
-  if (!('Notification' in window)) return false;
-  if (notifPermission === 'granted') return true;
   try {
+    if (typeof Notification === 'undefined') return false;
+    if (notifPermission === 'granted') return true;
     notifPermission = await Notification.requestPermission();
     if (notifPermission === 'granted') {
       showToast(T().notifGranted, 'success');
       return true;
-    } else {
-      showToast(T().notifDenied, 'warning');
-      return false;
     }
+    return false;
   } catch (e) {
     return false;
   }
 }
 
 function sendNotification(title, body) {
-  // Try native notification first
-  if ('Notification' in window && notifPermission === 'granted') {
-    try {
-      new Notification(title, {
-        body,
-        icon: 'icons/icon-192.png',
-        badge: 'icons/badge-72.png',
-        vibrate: [200, 100, 200],
-      });
+  try {
+    if (typeof Notification !== 'undefined' && notifPermission === 'granted') {
+      new Notification(title, { body, icon: 'icons/icon-192.png' });
       return;
-    } catch (e) {
-      console.warn('Notification failed:', e);
     }
-  }
-  // Fallback: in-app toast
+  } catch (e) {}
   showToast(title + ' — ' + body, 'warning');
 }
 

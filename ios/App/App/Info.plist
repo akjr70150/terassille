@@ -2,12 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CAPACITOR_DEBUG</key>
+	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>Terassille</string>
+	<string>Terassille</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -48,10 +48,15 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
-		<string>Terassille tarvitsee sijaintisi löytääksesi lähellä olevat terassit.</string>
+	<string>Terassille käyttää sijaintiasi löytääksesi lähellä olevat terassit ja näyttääkseen auringon sijainnin.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-		<string>Terassille seuraa sijaintiasi lähettääkseen ilmoituksia auringosta.</string>
+	<string>Terassille käyttää sijaintiasi löytääksesi lähellä olevat terassit.</string>
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict>
+		<key>TerassilleLocation</key>
+		<string>Terassille tarvitsee sijaintisi löytääkseen lähellä olevat aurinkoisemat terassit.</string>
+	</dict>
 	<key>NSUserNotificationsUsageDescription</key>
-		<string>Terassille lähettää ilmoituksia kun aurinko poistuu terassilta.</string>
+	<string>Terassille lähettää ilmoituksia kun aurinko poistuu terassilta.</string>
 </dict>
 </plist>
