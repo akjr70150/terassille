@@ -395,7 +395,7 @@ function initMap() {
   try {
     mapInstance = new maplibregl.Map({
       container:  'map',
-     // style:      'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+      style:      'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
       center:     [userLon, userLat],
       zoom: 14, pitch: 0, bearing: 0,
       trackResize: true,
