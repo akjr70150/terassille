@@ -378,12 +378,12 @@ body {
 
 #info-close {
   position: fixed;
-  bottom: calc(80vh - 44px);
+  top: 16px;
   right: 16px;
-  width: 32px;
-  height: 32px;
-  background: rgba(0,0,0,0.08);
-  border: none;
+  width: 36px;
+  height: 36px;
+  background: rgba(255,255,255,0.95);
+  border: 0.5px solid rgba(0,0,0,0.1);
   border-radius: 50%;
   font-size: 16px;
   cursor: pointer;
@@ -392,10 +392,9 @@ body {
   display: none;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
-#info-close.visible {
-  display: flex;
-}
+#info-close.visible { display: flex; }
 
 #info-body { padding: 14px 18px 0; }
 
