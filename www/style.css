@@ -26,6 +26,13 @@ body {
   width: 100%;
 }
 
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-logo,
+.maplibregl-ctrl-bottom-right,
+.maplibregl-ctrl-bottom-left {
+  display: none !important;
+}
+
 /* Fix MapLibre canvas orientation on iOS WebView */
 .maplibregl-canvas {
   transform: none !important;
@@ -200,7 +207,7 @@ body {
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
   height: var(--sheet-height, 25vh);
-  min-height: 110px;
+  min-height: 28px;
   max-height: 85vh;
   display: flex;
   flex-direction: column;
