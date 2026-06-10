@@ -700,6 +700,22 @@ function renderList() {
 
 // ── 15. Info panel ────────────────────────────────────────────────────────────
 
+function toggleSheet() {
+  const sheet = document.getElementById('bottom-sheet');
+  const btn = document.getElementById('collapse-btn');
+  const isCollapsed = sheet.classList.contains('collapsed');
+  if (isCollapsed) {
+    sheet.classList.remove('collapsed');
+    btn.classList.remove('collapsed');
+    document.documentElement.style.setProperty('--sheet-height', '48vh');
+  } else {
+    sheet.classList.add('collapsed');
+    btn.classList.add('collapsed');
+    document.documentElement.style.setProperty('--sheet-height', '44px');
+  }
+  setTimeout(() => { if (mapInstance) mapInstance.resize(); }, 260);
+}
+
 function openInfo(index) {
   selectedIndex = index;
   const tr       = allTerraces[index];
