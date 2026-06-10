@@ -1062,7 +1062,7 @@ async function savePriceModal() {
     const sheet  = getSheet();
     const h      = sheet.getBoundingClientRect().height;
     const vh     = window.innerHeight;
-    const snaps  = [110, vh * 0.35, vh * 0.65];
+    const snaps  = [28, 110, vh * 0.35, vh * 0.65];
     const closest = snaps.reduce((a, b) => Math.abs(b - h) < Math.abs(a - h) ? b : a);
     document.documentElement.style.setProperty('--sheet-height', closest + 'px');
     sheet.style.transition = 'height 0.25s cubic-bezier(0.32,0.72,0,1)';
