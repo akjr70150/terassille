@@ -377,23 +377,24 @@ body {
 }
 
 #info-close {
-  position: sticky;
-  top: 8px;
-  float: right;
-  margin: 8px 16px 0 0;
-  width: 28px;
-  height: 28px;
-  background: rgba(0, 0, 0, 0.06);
+  position: fixed;
+  bottom: calc(80vh - 44px);
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  background: rgba(0,0,0,0.08);
   border: none;
   border-radius: 50%;
-  display: flex;
+  font-size: 16px;
+  cursor: pointer;
+  color: rgba(0,0,0,0.5);
+  z-index: 160;
+  display: none;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  cursor: pointer;
-  color: rgba(0, 0, 0, 0.5);
-  z-index: 10;
-  flex-shrink: 0;
+}
+#info-close.visible {
+  display: flex;
 }
 
 #info-body { padding: 14px 18px 0; }
