@@ -402,7 +402,7 @@ function initMap() {
       attributionControl: false,
     });
 
-    mapInstance.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+    // mapInstance.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
     mapInstance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
 
     // Force resize after layout
