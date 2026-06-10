@@ -221,16 +221,19 @@ body {
 }
 
 #collapse-btn {
-  background: none;
+  background: rgba(0,0,0,0.06);
   border: none;
-  font-size: 18px;
+  font-size: 16px;
   cursor: pointer;
-  color: rgba(0,0,0,0.4);
-  padding: 0 4px;
+  color: rgba(0,0,0,0.5);
+  padding: 6px 10px;
+  border-radius: 10px;
   line-height: 1;
   transition: transform 0.25s;
+  flex-shrink: 0;
 }
 #collapse-btn.collapsed { transform: rotate(180deg); }
+#collapse-btn:active { background: rgba(0,0,0,0.12); }
 
 #sheet-handle {
   width: 44px; height: 5px;
@@ -247,7 +250,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px 8px;
+  padding: 8px 16px 8px;
   flex-shrink: 0;
 }
 #sheet-title { font-size: 15px; font-weight: 500; color: #1a1a1a; }
