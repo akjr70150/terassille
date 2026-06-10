@@ -58,10 +58,12 @@
   <div id="bottom-sheet">
     <div id="sheet-handle"></div>
     <div id="sheet-header">
-      <span id="sheet-title">Lähellä sinua</span>
-      <span id="sheet-count">0 terassia</span>
-      <button id="collapse-btn" onclick="toggleSheet()">▾</button>
-    </div>
+  <div style="display:flex;align-items:center;gap:8px;flex:1">
+    <span id="sheet-title">Lähellä sinua</span>
+    <span id="sheet-count">0 terassia</span>
+  </div>
+  <button id="collapse-btn" onclick="toggleSheet()">▾</button>
+</div>
     <div id="filter-row">
       <button class="chip active" onclick="setFilter('all', this)">Kaikki</button>
       <button class="chip" onclick="setFilter('sun', this)">☀ Aurinkoinen</button>
