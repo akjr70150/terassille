@@ -755,11 +755,13 @@ function openInfo(index) {
   btn.textContent = isOn ? T().monitorOff : T().monitorOn;
   btn.className   = isOn ? 'on' : '';
 
+  document.getElementById('info-close').classList.add('visible');
   document.getElementById('info-panel').classList.add('open');
   renderPriceList();
 }
 
 function closeInfo() {
+  document.getElementById('info-close').classList.remove('visible');
   document.getElementById('info-panel').classList.remove('open');
   selectedIndex = null;
   renderList();
