@@ -285,15 +285,12 @@ async function loadNearbyBuildings(lat, lon) {
 
 function effectiveStatus(tr) {
   const sun = getSun(tr.lat, tr.lon);
-  // Rain (51+) → rainy
-  if (weatherData && isRainy(weatherData.weathercode))    return 'rainy';
-  // Full overcast/fog (code 3+) → shade. Partly cloudy (1-2) does NOT affect sun status.
-  if (weatherData && weatherData.weathercode >= 3)        return 'shade';
+  // Only rain (code 51+) blocks sun — clouds alone don't
+  if (weatherData && isRainy(weatherData.weathercode)) return 'rainy';
   // Sun below horizon
-  if (sun.status === 'shade')                              return 'shade';
+  if (sun.status === 'shade') return 'shade';
   // Building shadow
-  if (estimateShadow(tr.lat, tr.lon, sun.alt, sun.az))    return 'shadow';
-  // Return actual sun position status (sunny / leaving)
+  if (estimateShadow(tr.lat, tr.lon, sun.alt, sun.az)) return 'shadow';
   return sun.status;
 }
 
