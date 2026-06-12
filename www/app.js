@@ -68,8 +68,13 @@ const STRINGS = {
     nextSug:      n => `Kokeile: ${n}`,
     notifGranted: 'Ilmoitukset käytössä ✓',
     notifDenied:  'Ilmoitukset estetty',
-    types: { bar: 'Baari', pub: 'Pubi', cafe: 'Kahvila', restaurant: 'Ravintola' },
-    chips: ['Kaikki', '☀ Aurinkoinen', 'Baari', 'Kahvila', 'Ravintola'],
+    types: { bar: 'Baari', pub: 'Pubi', cafe: 'Kahvila', restaurant: 'Ravintola', park: 'Puisto', beach: 'Ranta' },
+    chips: ['Kaikki', '☀ Aurinkoinen', 'Baari', 'Kahvila', 'Ravintola', '🌳 Puisto', '🏖 Ranta'],
+    sunWindow: (from, to) => `☀ klo ${from} – ${to}`,
+    sunWindowAllDay: '☀ Aurinkoinen koko päivän',
+    sunWindowNone: '☁ Ei aurinkoa tänään',
+    sunWindowSoon: (from) => `☀ Aurinko klo ${from}`,
+    sunWindowLeft: (to) => `☀ Aurinko klo ${to} asti`,
   },
   en: {
     searchPh:    'Search terrace...',
@@ -97,8 +102,13 @@ const STRINGS = {
     nextSug:      n => `Try next: ${n}`,
     notifGranted: 'Notifications enabled ✓',
     notifDenied:  'Notifications blocked',
-    types: { bar: 'Bar', pub: 'Pub', cafe: 'Café', restaurant: 'Restaurant' },
-    chips: ['All', '☀ Sunny', 'Bar', 'Café', 'Restaurant'],
+    types: { bar: 'Bar', pub: 'Pub', cafe: 'Café', restaurant: 'Restaurant', park: 'Park', beach: 'Beach' },
+    chips: ['All', '☀ Sunny', 'Bar', 'Café', 'Restaurant', '🌳 Park', '🏖 Beach'],
+    sunWindow: (from, to) => `☀ ${from} – ${to}`,
+    sunWindowAllDay: '☀ Sunny all day',
+    sunWindowNone: '☁ No sun today',
+    sunWindowSoon: (from) => `☀ Sun from ${from}`,
+    sunWindowLeft: (to) => `☀ Sun until ${to}`,
   },
 };
 const T = () => STRINGS[lang];
@@ -113,7 +123,7 @@ function switchLanguage(l) {
   document.getElementById('search-input').placeholder = T().searchPh;
   document.getElementById('sheet-title').textContent  = T().sheetTitle;
   document.querySelectorAll('#filter-row .chip').forEach((c, i) => {
-    if (T().chips[i]) c.textContent = T().chips[i];
+    if (T().chips[i] !== undefined) c.textContent = T().chips[i];
   });
   document.getElementById('lbl-sun').textContent  = T().sunLbl;
   document.getElementById('lbl-dist').textContent = T().distLbl;
@@ -179,6 +189,8 @@ function getSun(lat, lon) {
 function typeIcon(type) {
   if (type === 'bar' || type === 'pub') return '🍺';
   if (type === 'cafe') return '☕';
+  if (type === 'park') return '🌳';
+  if (type === 'beach') return '🏖';
   return '🍽';
 }
 
@@ -186,6 +198,8 @@ function amenityToType(amenity) {
   if (amenity === 'bar')  return 'bar';
   if (amenity === 'pub')  return 'pub';
   if (amenity === 'cafe') return 'cafe';
+  if (amenity === 'park' || amenity === 'leisure_park') return 'park';
+  if (amenity === 'beach' || amenity === 'natural_beach') return 'beach';
   return 'restaurant';
 }
 
@@ -205,6 +219,80 @@ function wxInfo(code) {
 
 function isRainy(code)    { return (code >= 51 && code <= 67) || (code >= 80 && code <= 99); }
 function isOvercast(code) { return code >= 3; }
+
+// ── Sun window: calculate when sun is up for a spot today ─────────────────
+// Returns { from: 'HH:MM', to: 'HH:MM', allDay: bool, none: bool }
+function calcSunWindow(lat, lon) {
+  const now   = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const times = SunCalc.getTimes(today, lat, lon);
+  const sunrise = times.sunrise;
+  const sunset  = times.sunset;
+
+  // If sun never rises or sets (polar day/night), handle gracefully
+  if (!sunrise || !sunset || isNaN(sunrise.getTime())) {
+    return { none: true };
+  }
+
+  const STEP_MS = 10 * 60 * 1000; // 10 minute steps
+  const intervals = [];
+  let inSun = false;
+  let windowStart = null;
+
+  for (let t = sunrise.getTime(); t <= sunset.getTime() + STEP_MS; t += STEP_MS) {
+    const d   = new Date(t);
+    const pos = SunCalc.getPosition(d, lat, lon);
+    const alt = pos.altitude * (180 / Math.PI);
+    const az  = ((pos.azimuth * (180 / Math.PI)) + 180 + 360) % 360;
+    const sunny = alt > 12 && !estimateShadow(lat, lon, alt, az);
+
+    if (sunny && !inSun) {
+      inSun = true;
+      windowStart = d;
+    } else if (!sunny && inSun) {
+      inSun = false;
+      intervals.push({ from: windowStart, to: new Date(t) });
+    }
+  }
+  if (inSun) {
+    intervals.push({ from: windowStart, to: new Date(sunset.getTime()) });
+  }
+
+  if (intervals.length === 0) return { none: true };
+
+  const fmt = d => d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+
+  // Find the longest window
+  const longest = intervals.reduce((a, b) => (b.to - b.from > a.to - a.from) ? b : a);
+
+  const sunriseMin = sunrise.getTime();
+  const sunsetMin  = sunset.getTime();
+  const allDay     = (longest.from.getTime() - sunriseMin < 20 * 60000) &&
+                     (sunsetMin - longest.to.getTime() < 20 * 60000);
+
+  return {
+    from:   fmt(longest.from),
+    to:     fmt(longest.to),
+    allDay,
+    none:   false,
+    intervals,
+  };
+}
+
+function sunWindowLabel(tr) {
+  const w = calcSunWindow(tr.lat, tr.lon);
+  if (w.none)   return T().sunWindowNone;
+  if (w.allDay) return T().sunWindowAllDay;
+  const now    = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const [fh, fm] = w.from.split(':').map(Number);
+  const [th, tm] = w.to.split(':').map(Number);
+  const fromMin  = fh * 60 + fm;
+  const toMin    = th * 60 + tm;
+  if (nowMin < fromMin) return T().sunWindowSoon(w.from); // sun not yet arrived
+  if (nowMin > toMin)   return T().sunWindowNone;          // sun already left
+  return T().sunWindowLeft(w.to);                          // sun here, shows when it leaves
+}
 
 
 // ── 7. Shadow estimation ──────────────────────────────────────────────────────
@@ -539,10 +627,16 @@ async function loadTerraces() {
 
   const d    = 0.07;
   const bbox = `${userLat - d},${userLon - d},${userLat + d},${userLon + d}`;
-  const q    = `[out:json][timeout:25];`
-             + `(node["amenity"~"restaurant|bar|pub|cafe"]["outdoor_seating"="yes"](${bbox});`
-             + `way["amenity"~"restaurant|bar|pub|cafe"]["outdoor_seating"="yes"](${bbox}););`
-             + `out body;>;out skel qt;`;
+  const q    = `[out:json][timeout:30];(`
+             + `node["amenity"~"restaurant|bar|pub|cafe"]["outdoor_seating"="yes"](${bbox});`
+             + `way["amenity"~"restaurant|bar|pub|cafe"]["outdoor_seating"="yes"](${bbox});`
+             + `node["leisure"="park"](${bbox});`
+             + `way["leisure"="park"](${bbox});`
+             + `node["natural"="beach"](${bbox});`
+             + `way["natural"="beach"](${bbox});`
+             + `node["leisure"="swimming_area"](${bbox});`
+             + `way["leisure"="swimming_area"](${bbox});`
+             + `);out body;>;out skel qt;`;
 
   try {
     const ctrl = new AbortController();
@@ -561,7 +655,12 @@ async function loadTerraces() {
     data.elements.forEach(el => {
       let lat, lon;
       const name    = el.tags?.name || (lang === 'fi' ? 'Terassi' : 'Terrace');
-      const amenity = el.tags?.amenity || 'restaurant';
+      const leisure = el.tags?.leisure;
+      const natural = el.tags?.natural;
+      const amenity = leisure === 'park' ? 'park'
+                    : leisure === 'swimming_area' ? 'beach'
+                    : natural === 'beach' ? 'beach'
+                    : el.tags?.amenity || 'restaurant';
 
       if (el.type === 'node') {
         lat = el.lat; lon = el.lon;
@@ -613,14 +712,20 @@ async function loadTerraces() {
 function addMarkers() {
   allTerraces.forEach((tr, i) => {
     const el = document.createElement('div');
-    el.className = 'cmarker ' + effectiveStatus(tr);
+    const isPark   = tr.type === 'park';
+    const isBeach  = tr.type === 'beach';
+    const stClass  = effectiveStatus(tr);
+    if (isPark)   el.className = `cmarker park-marker ${stClass}`;
+    else if (isBeach) el.className = `cmarker beach-marker ${stClass}`;
+    else          el.className = 'cmarker ' + stClass;
     el.innerHTML = `<span class="cmarker-inner">${typeIcon(tr.type)}</span>`;
     el.addEventListener('click', e => { e.stopPropagation(); openInfo(i); });
+    const anchor = (isPark || isBeach) ? 'center' : 'bottom';
     const m = new maplibregl.Marker({
       element:           el,
-      anchor:            'bottom',
-      pitchAlignment:    'map',     // stays on ground plane when map is tilted
-      rotationAlignment: 'map',     // rotates with map bearing
+      anchor,
+      pitchAlignment:    'map',
+      rotationAlignment: 'map',
     }).setLngLat([tr.lon, tr.lat]).addTo(mapInstance);
     currentMarkers.push(m);
   });
@@ -650,6 +755,8 @@ function getFiltered() {
     if (activeFilter === 'bar')        return tr.type === 'bar' || tr.type === 'pub';
     if (activeFilter === 'cafe')       return tr.type === 'cafe';
     if (activeFilter === 'restaurant') return tr.type === 'restaurant';
+    if (activeFilter === 'park')       return tr.type === 'park';
+    if (activeFilter === 'beach')      return tr.type === 'beach';
     return true;
   });
 }
@@ -675,6 +782,7 @@ function renderList() {
     const wx  = weatherData ? wxInfo(weatherData.weathercode) : null;
     const metaWeather = wx && st === 'rainy'
       ? `<span class="meta-dot"></span><span>${lang === 'fi' ? wx.fi : wx.en}</span>` : '';
+    const sw = sunWindowLabel(tr);
     return `<div class="t-row${sel ? ' selected' : ''}" onclick="openInfo(${gi})">
       <div class="t-icon ${st}">${typeIcon(tr.type)}</div>
       <div class="t-info">
@@ -685,6 +793,7 @@ function renderList() {
           <span>${distStr(tr.dist)}</span>
           ${metaWeather}
         </div>
+        <div class="t-sunwindow">${sw}</div>
       </div>
       <div class="t-right">
         <span class="sun-badge ${st}">${statusLabel(st)}</span>
@@ -728,6 +837,22 @@ function openInfo(index) {
 
   document.getElementById('info-name').textContent     = tr.name;
   document.getElementById('info-subtitle').textContent = typeName + ' · ' + distStr(tr.dist);
+
+  // Sun window
+  const sw = calcSunWindow(tr.lat, tr.lon);
+  const swEl = document.getElementById('info-sun-window');
+  if (swEl) {
+    if (sw.none) {
+      swEl.textContent = T().sunWindowNone;
+      swEl.className = 'info-sun-window none';
+    } else if (sw.allDay) {
+      swEl.textContent = T().sunWindowAllDay;
+      swEl.className = 'info-sun-window allday';
+    } else {
+      swEl.textContent = T().sunWindow(sw.from, sw.to);
+      swEl.className = 'info-sun-window window';
+    }
+  }
   document.getElementById('info-sun-val').textContent  = statusLabel(st);
   document.getElementById('info-sun-val').className    = 'istat-val ' + st;
   document.getElementById('info-dist-val').textContent = distStr(tr.dist);
