@@ -378,12 +378,12 @@ body {
 
 #info-close {
   position: fixed;
-  top: 16px;
+  bottom: calc(80vh - 44px);
   right: 16px;
-  width: 36px;
-  height: 36px;
-  background: rgba(255,255,255,0.95);
-  border: 0.5px solid rgba(0,0,0,0.1);
+  width: 32px;
+  height: 32px;
+  background: rgba(0,0,0,0.08);
+  border: none;
   border-radius: 50%;
   font-size: 16px;
   cursor: pointer;
@@ -392,9 +392,10 @@ body {
   display: none;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
-#info-close.visible { display: flex; }
+#info-close.visible {
+  display: flex;
+}
 
 #info-body { padding: 14px 18px 0; }
 
@@ -548,3 +549,45 @@ body {
 .cmarker.rainy  { background: #2980b9; }
 .cmarker.shadow { background: #6c6c9a; }
 .cmarker-inner  { transform: rotate(45deg); font-size: 14px; }
+
+/* Park and beach icons are circles not pins */
+.cmarker.park-marker {
+  border-radius: 50%;
+  background: #27ae60;
+  transform: none;
+  border: 2.5px solid rgba(255,255,255,0.9);
+}
+.cmarker.park-marker:hover { transform: scale(1.18); }
+.cmarker.park-marker .cmarker-inner { transform: none; }
+.cmarker.beach-marker {
+  border-radius: 50%;
+  background: #2980b9;
+  transform: none;
+  border: 2.5px solid rgba(255,255,255,0.9);
+}
+.cmarker.beach-marker:hover { transform: scale(1.18); }
+.cmarker.beach-marker .cmarker-inner { transform: none; }
+
+/* Sun window in list */
+.t-sunwindow {
+  font-size: 11px;
+  color: #b57300;
+  margin-top: 3px;
+  font-weight: 500;
+}
+.t-sunwindow:empty { display: none; }
+
+/* Sun window in info panel */
+.info-sun-window {
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 4px;
+  padding: 3px 0;
+}
+.info-sun-window.none   { color: rgba(0,0,0,0.35); }
+.info-sun-window.allday { color: #b57300; }
+.info-sun-window.window { color: #b57300; }
+
+/* Park icon in t-icon */
+.t-icon.park  { background: rgba(39,174,96,0.12); }
+.t-icon.beach { background: rgba(41,128,185,0.12); }
