@@ -1376,6 +1376,12 @@ document.addEventListener('keydown', e => {
 supabaseReady = SUPABASE_URL !== 'https://YOUR_PROJECT.supabase.co';
 
 document.addEventListener('DOMContentLoaded', () => {
+  const infoPanel = document.getElementById('info-panel');
+  const infoClose = document.getElementById('info-close');
+  if (infoPanel && infoClose && infoClose.parentElement !== infoPanel) {
+    infoPanel.prepend(infoClose);
+  }
+
   document.getElementById('search-input').placeholder = T().searchPh;
   initMap();
 });
