@@ -641,12 +641,15 @@ async function loadTerraces() {
   closeInfo(); renderList();
   showToast(T().loading, 'info');
 
-  const d    = 0.025; // ~2.5km radius
-  const bbox = `${userLat - d},${userLon - d},${userLat + d},${userLon + d}`;
-  const q    = `[out:json][timeout:25];(`
-             + `node["amenity"~"restaurant|bar|pub|cafe"]["outdoor_seating"="yes"]["name"](${bbox});`
-             + `way["amenity"~"restaurant|bar|pub|cafe"]["outdoor_seating"="yes"]["name"](${bbox});`
-             + `);out body;>;out skel qt;`;
+ const radius = 3500;
+const q = `[out:json][timeout:25];(
+  nwr["amenity"~"restaurant|bar|pub|cafe"]["name"]["outdoor_seating"~"yes|only|terrace"](around:${radius},${userLat},${userLon});
+  nwr["amenity"="beer_garden"]["name"](around:${radius},${userLat},${userLon});
+  nwr["leisure"="outdoor_seating"]["name"](around:${radius},${userLat},${userLon});
+
+  /* fallback: likely places, because OSM terrace tagging is incomplete */
+  nwr["amenity"~"restaurant|bar|pub|cafe"]["name"](around:${radius},${userLat},${userLon});
+);out center tags;`;
 
   try {
     const ctrl = new AbortController();
@@ -669,17 +672,17 @@ async function loadTerraces() {
 
       if (el.type === 'node') {
         lat = el.lat; lon = el.lon;
-      } else if (el.type === 'way') {
-        // Use explicit geometry if available, else look up node coords
-        const pts = el.geometry
-          ? el.geometry
-          : (el.nodes || []).map(id => nodeMap[id]).filter(Boolean);
-        if (pts.length < 2) return;
-        lat = pts.reduce((s, g) => s + g.lat, 0) / pts.length;
-        lon = pts.reduce((s, g) => s + g.lon, 0) / pts.length;
-      } else {
-        return;
-      }
+      } else if (el.type === 'way' || el.type === 'relation') {
+  if (el.center) {
+    lat = el.center.lat;
+    lon = el.center.lon;
+  } else {
+    const pts = el.geometry ? el.geometry : (el.nodes || []).map(id => nodeMap[id]).filter(Boolean);
+    if (pts.length < 2) return;
+    lat = pts.reduce((s, g) => s + g.lat, 0) / pts.length;
+    lon = pts.reduce((s, g) => s + g.lon, 0) / pts.length;
+  }
+}
 
       // Deduplicate by name + coords rounded to ~1m grid
       // Also catch same venue with slightly different coords (node vs way centroid)
@@ -880,8 +883,13 @@ function toggleSheet() {
 }
 
 function openInfo(index) {
+  const tr = allTerraces[index];
+  if (!tr) {
+    console.warn('openInfo: invalid terrace index', index, allTerraces.length);
+    return;
+  }
+
   selectedIndex = index;
-  const tr       = allTerraces[index];
   const sun      = getSun(tr.lat, tr.lon);
   const st       = effectiveStatus(tr);
   const typeName = T().types[tr.type] || tr.type;
