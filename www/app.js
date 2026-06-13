@@ -32,6 +32,9 @@ let lastLocationRefreshAt = 0;
 
 const LOCATION_REFRESH_DISTANCE = 700;
 const LOCATION_REFRESH_COOLDOWN = 60000;
+const LOCAL_SEARCH_RADIUS = 3000;
+const RURAL_SEARCH_RADIUS = 12000;
+const MIN_LOCAL_RESULTS = 8;
 
 // Supabase config replace with your project URL and anon key
 const SUPABASE_URL     = 'https://YOUR_PROJECT.supabase.co';
@@ -60,7 +63,7 @@ const STRINGS = {
     loading:     'Haetaan terasseja...',
     loaded:       n => `${n} terassia löydetty ✓`,
     noTerraces:  'Ei terasseja löydetty alueella',
-    locFallback: 'Sijainti ei saatavilla – käytetään Helsinkiä',
+    locFallback: 'Sijainti ei saatavilla – käytetään viimeistä sijaintia',
     loadError:   'Lataus epäonnistui – yritä uudelleen',
     sunny:       'Aurinkoinen',
     leaving:     'Aurinko lähtee',
@@ -95,7 +98,7 @@ const STRINGS = {
     loading:     'Loading terraces...',
     loaded:       n => `${n} terraces found ✓`,
     noTerraces:  'No terraces found in this area',
-    locFallback: 'Location unavailable – using Helsinki',
+    locFallback: 'Location unavailable – using last known location',
     loadError:   'Loading failed – try again',
     sunny:       'Sunny',
     leaving:     'Sun leaving',
@@ -364,7 +367,7 @@ async function loadNearbyBuildings(lat, lon) {
     data.elements.forEach(el => { if (el.type === 'node') nodes[el.id] = { lat: el.lat, lon: el.lon }; });
     data.elements.forEach(el => {
       if (el.type !== 'way') return;
-      // Use tagged height, levels*3.2, or assume 13m (Helsinki avg ~4 floors)
+      // Use tagged height, levels*3.2, or assume 13m.
       const h = parseFloat(el.tags?.['building:height'] || el.tags?.height || 0)
               || (parseInt(el.tags?.['building:levels'] || el.tags?.levels || 0) || 0) * 3.2
               || 13;
@@ -560,6 +563,9 @@ function onLocationSuccess(lat, lon) {
   userLat = lat; userLon = lon;
   lastLoadedLat = lat; lastLoadedLon = lon;
   lastLocationRefreshAt = Date.now();
+  try {
+    localStorage.setItem('last_location', JSON.stringify({ lat, lon }));
+  } catch (e) {}
   showToast(T().located, 'success');
   if (mapInstance) {
     mapInstance.flyTo({ center: [userLon, userLat], zoom: 14, duration: 1200 });
@@ -590,6 +596,13 @@ function updateLocationAfterMovement(lat, lon, accuracy) {
 }
 
 function onLocationFallback() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('last_location') || 'null');
+    if (Number.isFinite(saved?.lat) && Number.isFinite(saved?.lon)) {
+      userLat = saved.lat;
+      userLon = saved.lon;
+    }
+  } catch (e) {}
   lastLoadedLat = userLat; lastLoadedLon = userLon;
   lastLocationRefreshAt = Date.now();
   showToast(T().locFallback, 'warning');
@@ -672,7 +685,7 @@ function getUserLocation() {
     { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
   );
 
-  // Hard fallback: if nothing after 20s, use coarse or Helsinki default
+  // Hard fallback: use a coarse fix, last known location, or the initial default.
   setTimeout(() => {
     if (!settled) {
       if (gotCoarse) done(userLat, userLon);
@@ -684,17 +697,16 @@ function getUserLocation() {
 
 // 12. Terrace loading with deduplication
 
-async function loadTerraces() {
+async function loadTerraces(radius = LOCAL_SEARCH_RADIUS, allowExpand = true) {
   currentMarkers.forEach(m => m.remove());
   currentMarkers = []; allTerraces = []; selectedIndex = null;
   closeInfo(); renderList();
   showToast(T().loading, 'info');
 
-  const radius = 2200;
   const q = `[out:json][timeout:18];(
-    node["amenity"~"restaurant|bar|pub|cafe|fast_food"]["name"](around:${radius},${userLat},${userLon});
-    way["amenity"~"restaurant|bar|pub|cafe|fast_food"]["name"](around:${radius},${userLat},${userLon});
-    relation["amenity"~"restaurant|bar|pub|cafe|fast_food"]["name"](around:${radius},${userLat},${userLon});
+    node["amenity"~"restaurant|bar|pub|cafe|fast_food|biergarten|beer_garden"]["name"](around:${radius},${userLat},${userLon});
+    way["amenity"~"restaurant|bar|pub|cafe|fast_food|biergarten|beer_garden"]["name"](around:${radius},${userLat},${userLon});
+    relation["amenity"~"restaurant|bar|pub|cafe|fast_food|biergarten|beer_garden"]["name"](around:${radius},${userLat},${userLon});
   );out tags center;`;
 
   try {
@@ -755,7 +767,10 @@ async function loadTerraces() {
     allTerraces = allTerraces.filter(tr => !hidden.includes(hideKey(tr)));
 
     allTerraces.sort((a, b) => a.dist - b.dist);
-    allTerraces = allTerraces.slice(0, 80);
+
+    if (allowExpand && allTerraces.length < MIN_LOCAL_RESULTS) {
+      return loadTerraces(RURAL_SEARCH_RADIUS, false);
+    }
 
     if (allTerraces.length === 0) {
       showToast(T().noTerraces, 'warning');
