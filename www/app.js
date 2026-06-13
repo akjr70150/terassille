@@ -641,8 +641,8 @@ async function loadTerraces() {
   closeInfo(); renderList();
   showToast(T().loading, 'info');
 
- const radius = 3500;
-const q = `[out:json][timeout:25];(
+ const radius = 1500;
+const q = `[out:json][timeout:15];(
   node["amenity"~"restaurant|bar|pub|cafe"]["name"]["outdoor_seating"~"yes|only|terrace"](around:${radius},${userLat},${userLon});
   way["amenity"~"restaurant|bar|pub|cafe"]["name"]["outdoor_seating"~"yes|only|terrace"](around:${radius},${userLat},${userLon});
   relation["amenity"~"restaurant|bar|pub|cafe"]["name"]["outdoor_seating"~"yes|only|terrace"](around:${radius},${userLat},${userLon});
@@ -650,10 +650,6 @@ const q = `[out:json][timeout:25];(
   node["amenity"="beer_garden"]["name"](around:${radius},${userLat},${userLon});
   way["amenity"="beer_garden"]["name"](around:${radius},${userLat},${userLon});
   relation["amenity"="beer_garden"]["name"](around:${radius},${userLat},${userLon});
-
-  node["amenity"~"restaurant|bar|pub|cafe"]["name"](around:${radius},${userLat},${userLon});
-  way["amenity"~"restaurant|bar|pub|cafe"]["name"](around:${radius},${userLat},${userLon});
-  relation["amenity"~"restaurant|bar|pub|cafe"]["name"](around:${radius},${userLat},${userLon});
 );out tags center;`;
 
 
@@ -827,7 +823,8 @@ function renderSuggestionCard() {
 }
 
 function renderList() {
-  try { renderSuggestionCard(); } catch (e) { console.warn('Suggestion card failed:', e); }
+  const card = document.getElementById('suggestion-card');
+  if (card) card.style.display = 'none';
   const list = document.getElementById('terrace-list');
   const rows = getFiltered();
   document.getElementById('sheet-count').textContent = T().count(rows.length);
