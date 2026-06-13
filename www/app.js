@@ -643,12 +643,17 @@ async function loadTerraces() {
 
  const radius = 3500;
 const q = `[out:json][timeout:25];(
-  nwr["amenity"~"restaurant|bar|pub|cafe"]["name"]["outdoor_seating"~"yes|only|terrace"](around:${radius},${userLat},${userLon});
-  nwr["amenity"="beer_garden"]["name"](around:${radius},${userLat},${userLon});
-  nwr["leisure"="outdoor_seating"]["name"](around:${radius},${userLat},${userLon});
+  node["amenity"~"restaurant|bar|pub|cafe"]["name"]["outdoor_seating"~"yes|only|terrace"](around:${radius},${userLat},${userLon});
+  way["amenity"~"restaurant|bar|pub|cafe"]["name"]["outdoor_seating"~"yes|only|terrace"](around:${radius},${userLat},${userLon});
+  relation["amenity"~"restaurant|bar|pub|cafe"]["name"]["outdoor_seating"~"yes|only|terrace"](around:${radius},${userLat},${userLon});
 
-  /* fallback: likely places, because OSM terrace tagging is incomplete */
-  nwr["amenity"~"restaurant|bar|pub|cafe"]["name"](around:${radius},${userLat},${userLon});
+  node["amenity"="beer_garden"]["name"](around:${radius},${userLat},${userLon});
+  way["amenity"="beer_garden"]["name"](around:${radius},${userLat},${userLon});
+  relation["amenity"="beer_garden"]["name"](around:${radius},${userLat},${userLon});
+
+  node["amenity"~"restaurant|bar|pub|cafe"]["name"](around:${radius},${userLat},${userLon});
+  way["amenity"~"restaurant|bar|pub|cafe"]["name"](around:${radius},${userLat},${userLon});
+  relation["amenity"~"restaurant|bar|pub|cafe"]["name"](around:${radius},${userLat},${userLon});
 );out center tags;`;
 
   try {
