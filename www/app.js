@@ -965,7 +965,7 @@ function openInfo(index) {
   // Report button
   const reportBtn = document.getElementById('report-btn');
   if (reportBtn) {
-    reportBtn.textContent = lang === 'fi' ? '🚫 Terassia ei ole olemassa' : '🚫 This terrace doesn't exist';
+    reportBtn.textContent = lang === 'fi' ? '🚫 Terassia ei ole olemassa' : '🚫 This terrace doesn\'t exist';
     reportBtn.onclick = () => {
       if (confirm(lang === 'fi'
         ? `Piilotetaanko "${tr.name}"? Voit palauttaa sen latauksella.`
