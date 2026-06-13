@@ -827,7 +827,7 @@ function renderSuggestionCard() {
 }
 
 function renderList() {
-  renderSuggestionCard();
+  try { renderSuggestionCard(); } catch (e) { console.warn('Suggestion card failed:', e); }
   const list = document.getElementById('terrace-list');
   const rows = getFiltered();
   document.getElementById('sheet-count').textContent = T().count(rows.length);
@@ -900,8 +900,8 @@ function openInfo(index) {
   const st       = effectiveStatus(tr);
   const typeName = T().types[tr.type] || tr.type;
 
-  renderList();
-  if (mapInstance) mapInstance.flyTo({ center: [tr.lon, tr.lat], zoom: 16, duration: 700 });
+  try { renderList(); } catch (e) { console.warn('List render failed:', e); }
+if (mapInstance) mapInstance.flyTo({ center: [tr.lon, tr.lat], zoom: 16, duration: 700 });
 
   const ic = document.getElementById('info-icon');
   ic.className = st; ic.textContent = typeIcon(tr.type);
