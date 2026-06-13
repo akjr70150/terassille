@@ -466,6 +466,22 @@ body {
   border: 0.5px solid rgba(243, 156, 18, 0.5);
 }
 
+#report-btn {
+  width: 100%;
+  padding: 11px;
+  margin-top: 8px;
+  border: 0.5px solid rgba(0,0,0,0.12);
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+  color: rgba(0,0,0,0.4);
+  transition: all 0.15s;
+}
+#report-btn:hover { background: rgba(231,76,60,0.06); color: #c0392b; border-color: rgba(231,76,60,0.3); }
+#report-btn:active { transform: scale(0.98); }
+
 /* ── Drink price list ── */
 #price-section {
   margin-top: 14px;
