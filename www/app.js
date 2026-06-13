@@ -641,15 +641,14 @@ async function loadTerraces() {
   closeInfo(); renderList();
   showToast(T().loading, 'info');
 
- const radius = 1500;
-const q = `[out:json][timeout:15];(
-  node["amenity"~"restaurant|bar|pub|cafe"]["name"]["outdoor_seating"~"yes|only|terrace"](around:${radius},${userLat},${userLon});
-  way["amenity"~"restaurant|bar|pub|cafe"]["name"]["outdoor_seating"~"yes|only|terrace"](around:${radius},${userLat},${userLon});
-  relation["amenity"~"restaurant|bar|pub|cafe"]["name"]["outdoor_seating"~"yes|only|terrace"](around:${radius},${userLat},${userLon});
+ const radius = 2000;
+const q = `[out:json][timeout:18];(
+  node["amenity"~"restaurant|bar|pub|cafe|fast_food"]["name"](around:${radius},${userLat},${userLon});
+  way["amenity"~"restaurant|bar|pub|cafe|fast_food"]["name"](around:${radius},${userLat},${userLon});
+  relation["amenity"~"restaurant|bar|pub|cafe|fast_food"]["name"](around:${radius},${userLat},${userLon});
 
-  node["amenity"="beer_garden"]["name"](around:${radius},${userLat},${userLon});
-  way["amenity"="beer_garden"]["name"](around:${radius},${userLat},${userLon});
-  relation["amenity"="beer_garden"]["name"](around:${radius},${userLat},${userLon});
+  node["shop"~"bakery|convenience"]["name"](around:${radius},${userLat},${userLon});
+  way["shop"~"bakery|convenience"]["name"](around:${radius},${userLat},${userLon});
 );out tags center;`;
 
 
@@ -696,8 +695,12 @@ const q = `[out:json][timeout:15];(
       if (seen.has(key) || alreadyNearby) return;
       seen.set(key, true);
 
-      const dist    = haversine(userLat, userLon, lat, lon);
-      const type    = amenityToType(amenity);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+    const dist = haversine(userLat, userLon, lat, lon);
+    if (dist > radius) return;
+
+      const type = amenityToType(amenity);
       const hours   = el.tags?.opening_hours || null;
       const website = el.tags?.website || el.tags?.['contact:website'] || el.tags?.url || null;
       const phone   = el.tags?.phone || el.tags?.['contact:phone'] || null;
