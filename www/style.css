@@ -549,7 +549,7 @@ body {
 
 /* ── Suggestion card ── */
 #suggestion-card {
-  display: none;
+  display: none !important;
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
