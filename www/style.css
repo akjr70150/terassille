@@ -637,7 +637,7 @@ body { background: #edf1ee; color: var(--ui-ink); }
 @media (min-width: 900px) {
   #bottom-sheet {
     position: absolute; top: 150px; left: 18px; bottom: 18px;
-    width: 430px; height: auto !important; max-height: none;
+    width: 450px; height: auto !important; max-height: none;
     border-radius: 14px; border: 1px solid var(--ui-line); padding-bottom: 0;
   }
   #sheet-handle { display: none; }
