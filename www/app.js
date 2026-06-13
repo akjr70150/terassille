@@ -641,14 +641,11 @@ async function loadTerraces() {
   closeInfo(); renderList();
   showToast(T().loading, 'info');
 
- const radius = 2000;
+ const radius = 2200;
 const q = `[out:json][timeout:18];(
   node["amenity"~"restaurant|bar|pub|cafe|fast_food"]["name"](around:${radius},${userLat},${userLon});
   way["amenity"~"restaurant|bar|pub|cafe|fast_food"]["name"](around:${radius},${userLat},${userLon});
   relation["amenity"~"restaurant|bar|pub|cafe|fast_food"]["name"](around:${radius},${userLat},${userLon});
-
-  node["shop"~"bakery|convenience"]["name"](around:${radius},${userLat},${userLon});
-  way["shop"~"bakery|convenience"]["name"](around:${radius},${userLat},${userLon});
 );out tags center;`;
 
 
@@ -712,6 +709,7 @@ const q = `[out:json][timeout:18];(
     allTerraces = allTerraces.filter(tr => !hidden.includes(hideKey(tr)));
 
     allTerraces.sort((a, b) => a.dist - b.dist);
+    allTerraces = allTerraces.slice(0, 80);
 
     if (allTerraces.length === 0) {
       showToast(T().noTerraces, 'warning');
