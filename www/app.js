@@ -61,6 +61,7 @@ const STRINGS = {
     rainy:       'Sateen takia varjossa',
     shadow:      'Rakennuksen varjossa',
     monitorOn:   '👁 Seuraa tätä terassia',
+    reportWrong: '🚫 Terassia ei ole olemassa',
     monitorOff:  '✓ Seurataan – pysäytä',
     sunLabel:    'Auringon korkeuskulma',
     sunLbl:      'Aurinko', distLbl: 'Etäisyys', typeLbl: 'Tyyppi',
@@ -95,6 +96,7 @@ const STRINGS = {
     rainy:       'Rainy – no sun',
     shadow:      'Building shadow',
     monitorOn:   '👁 Monitor this terrace',
+    reportWrong: '🚫 This terrace doesn\'t exist',
     monitorOff:  '✓ Monitoring – stop',
     sunLabel:    'Sun elevation',
     sunLbl:      'Sun', distLbl: 'Distance', typeLbl: 'Type',
@@ -621,11 +623,11 @@ async function loadTerraces() {
   closeInfo(); renderList();
   showToast(T().loading, 'info');
 
-  const d    = 0.07;
+  const d    = 0.025; // ~2.5km radius
   const bbox = `${userLat - d},${userLon - d},${userLat + d},${userLon + d}`;
   const q    = `[out:json][timeout:25];(`
-             + `node["amenity"~"restaurant|bar|pub|cafe"]["outdoor_seating"="yes"](${bbox});`
-             + `way["amenity"~"restaurant|bar|pub|cafe"]["outdoor_seating"="yes"](${bbox});`
+             + `node["amenity"~"restaurant|bar|pub|cafe"]["outdoor_seating"="yes"]["name"](${bbox});`
+             + `way["amenity"~"restaurant|bar|pub|cafe"]["outdoor_seating"="yes"]["name"](${bbox});`
              + `);out body;>;out skel qt;`;
 
   try {
@@ -675,6 +677,10 @@ async function loadTerraces() {
       const type = amenityToType(amenity);
       allTerraces.push({ name, lat, lon, dist, type });
     });
+
+    // Filter out hidden terraces
+    const hidden = getHiddenTerraces();
+    allTerraces = allTerraces.filter(tr => !hidden.includes(hideKey(tr)));
 
     allTerraces.sort((a, b) => a.dist - b.dist);
 
@@ -857,6 +863,19 @@ function openInfo(index) {
   btn.textContent = isOn ? T().monitorOff : T().monitorOn;
   btn.className   = isOn ? 'on' : '';
 
+  // Report button
+  const reportBtn = document.getElementById('report-btn');
+  if (reportBtn) {
+    reportBtn.textContent = lang === 'fi' ? '🚫 Terassia ei ole olemassa' : '🚫 This terrace doesn't exist';
+    reportBtn.onclick = () => {
+      if (confirm(lang === 'fi'
+        ? `Piilotetaanko "${tr.name}"? Voit palauttaa sen latauksella.`
+        : `Hide "${tr.name}"? Reload to restore.`)) {
+        hideTerrace(index);
+      }
+    };
+  }
+
   document.getElementById('info-close').classList.add('visible');
   document.getElementById('info-panel').classList.add('open');
   renderPriceList();
@@ -942,6 +961,36 @@ async function toggleMonitoring() {
 
 
 // ── 18. Drink prices (localStorage + Supabase backend) ───────────────────────
+
+// ── Hidden terraces (community corrections) ──────────────────────────────
+function getHiddenTerraces() {
+  try { return JSON.parse(localStorage.getItem('hidden_terraces') || '[]'); }
+  catch(e) { return []; }
+}
+
+function hideKey(tr) {
+  return (tr.name + '_' + Math.round(tr.lat * 10000) + '_' + Math.round(tr.lon * 10000))
+    .replace(/[^a-zA-Z0-9_]/g, '_');
+}
+
+function hideTerrace(index) {
+  const tr  = allTerraces[index];
+  const key = hideKey(tr);
+  const hidden = getHiddenTerraces();
+  if (!hidden.includes(key)) {
+    hidden.push(key);
+    localStorage.setItem('hidden_terraces', JSON.stringify(hidden));
+  }
+  closeInfo();
+  // Remove from allTerraces and re-render
+  allTerraces.splice(index, 1);
+  currentMarkers[index]?.remove();
+  currentMarkers.splice(index, 1);
+  selectedIndex = null;
+  renderList();
+  const isEn = lang === 'en';
+  showToast(isEn ? 'Terrace hidden' : 'Terassi piilotettu', 'success');
+}
 
 const DEFAULT_DRINKS = [
   { id: 'beer3',      fi: 'Olut III',       en: 'Beer III',    size: '0.4l' },
