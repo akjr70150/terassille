@@ -654,7 +654,8 @@ const q = `[out:json][timeout:25];(
   node["amenity"~"restaurant|bar|pub|cafe"]["name"](around:${radius},${userLat},${userLon});
   way["amenity"~"restaurant|bar|pub|cafe"]["name"](around:${radius},${userLat},${userLon});
   relation["amenity"~"restaurant|bar|pub|cafe"]["name"](around:${radius},${userLat},${userLon});
-);out center tags;`;
+);out tags center;`;
+
 
   try {
     const ctrl = new AbortController();
