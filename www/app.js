@@ -1,15 +1,15 @@
 // =============================================================================
-// app.js — Terassille
+// app.js Terassille
 // Fixes in this version:
-//  - Marker deduplication (no more clusters of 20 pins on one spot)
-//  - Overpass retry with fallback mirror + rate-limit handling
-//  - Shadow re-render guaranteed after buildings load
-//  - Web Push Notifications (works on iOS 16.4+ and Android)
-//  - Supabase backend for shared drink prices
+// - Marker deduplication (no more clusters of 20 pins on one spot)
+// - Overpass retry with fallback mirror + rate-limit handling
+// - Shadow re-render guaranteed after buildings load
+// - Web Push Notifications (works on iOS 16.4+ and Android)
+// - Supabase backend for shared drink prices
 // =============================================================================
 
 
-// ── 1. State ─────────────────────────────────────────────────────────────────
+// 1. State
 
 let lang            = 'fi';
 let userLat         = 60.1699;
@@ -26,12 +26,12 @@ let toastTimer      = null;
 let weatherData     = null;
 let nearbyBuildings = [];
 
-// Supabase config — replace with your project URL and anon key
+// Supabase config replace with your project URL and anon key
 const SUPABASE_URL     = 'https://YOUR_PROJECT.supabase.co';
 const SUPABASE_ANON    = 'YOUR_ANON_KEY';
 let   supabaseReady    = false;
 
-// Overpass API mirrors — tried in order on failure
+// Overpass API mirrors tried in order on failure
 const OVERPASS_MIRRORS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
@@ -39,7 +39,7 @@ const OVERPASS_MIRRORS = [
 ];
 
 
-// ── 2. Translations ───────────────────────────────────────────────────────────
+// 2. Translations
 
 const STRINGS = {
   fi: {
@@ -69,8 +69,8 @@ const STRINGS = {
     nextSug:      n => `Kokeile: ${n}`,
     notifGranted: 'Ilmoitukset käytössä ✓',
     notifDenied:  'Ilmoitukset estetty',
-    types: { bar: 'Baari', pub: 'Pubi', cafe: 'Kahvila', restaurant: 'Ravintola', park: 'Puisto', beach: 'Ranta' },
-    chips: ['Kaikki', '☀ Aurinkoinen', 'Baari', 'Kahvila', 'Ravintola', '🌳 Puisto', '🏖 Ranta'],
+    types: { bar: 'Baari', pub: 'Pubi', cafe: 'Kahvila', restaurant: 'Ravintola' },
+    chips: ['Kaikki', '☀ Aurinkoinen', 'Baari', 'Kahvila', 'Ravintola'],
     sunWindow: (from, to) => `☀ klo ${from} – ${to}`,
     sunWindowAllDay: '☀ Aurinkoinen koko päivän',
     sunWindowNone: '☁ Ei aurinkoa tänään',
@@ -104,8 +104,8 @@ const STRINGS = {
     nextSug:      n => `Try next: ${n}`,
     notifGranted: 'Notifications enabled ✓',
     notifDenied:  'Notifications blocked',
-    types: { bar: 'Bar', pub: 'Pub', cafe: 'Café', restaurant: 'Restaurant', park: 'Park', beach: 'Beach' },
-    chips: ['All', '☀ Sunny', 'Bar', 'Café', 'Restaurant', '🌳 Park', '🏖 Beach'],
+    types: { bar: 'Bar', pub: 'Pub', cafe: 'Café', restaurant: 'Restaurant' },
+    chips: ['All', '☀ Sunny', 'Bar', 'Café', 'Restaurant'],
     sunWindow: (from, to) => `☀ ${from} – ${to}`,
     sunWindowAllDay: '☀ Sunny all day',
     sunWindowNone: '☁ No sun today',
@@ -116,7 +116,7 @@ const STRINGS = {
 const T = () => STRINGS[lang];
 
 
-// ── 3. Language ───────────────────────────────────────────────────────────────
+// 3. Language
 
 function switchLanguage(l) {
   lang = l;
@@ -136,7 +136,7 @@ function switchLanguage(l) {
 }
 
 
-// ── 4. Toast ──────────────────────────────────────────────────────────────────
+// 4. Toast
 
 function showToast(msg, type = 'warning') {
   const el = document.getElementById('toast');
@@ -147,7 +147,7 @@ function showToast(msg, type = 'warning') {
 }
 
 
-// ── 5. Search ─────────────────────────────────────────────────────────────────
+// 5. Search
 
 function onSearch(val) {
   searchQuery = val.trim().toLowerCase();
@@ -164,7 +164,7 @@ function clearSearch() {
 }
 
 
-// ── 6. Helpers ────────────────────────────────────────────────────────────────
+// 6. Helpers
 
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371000;
@@ -217,13 +217,13 @@ function wxInfo(code) {
 
 function isRainy(code)    { return (code >= 51 && code <= 67) || (code >= 80 && code <= 99); }
 
-// ── Opening hours helpers ─────────────────────────────────────────────────
+// Opening hours helpers
 function isOpenNow(hoursStr) {
-  // Simple check — a full parser would be complex
+  // Simple check a full parser would be complex
   // Returns true/false/null (null = unknown)
   if (!hoursStr) return null;
   if (hoursStr.toLowerCase().includes('24/7')) return true;
-  // For now just return null for complex strings — show raw string
+  // For now just return null for complex strings show raw string
   return null;
 }
 
@@ -236,7 +236,7 @@ function formatHours(hoursStr) {
 }
 function isOvercast(code) { return code >= 3; }
 
-// ── Sun window: calculate when sun is up for a spot today ─────────────────
+// Sun window: calculate when sun is up for a spot today
 // Returns { from: 'HH:MM', to: 'HH:MM', allDay: bool, none: bool }
 function calcSunWindow(lat, lon) {
   const now   = new Date();
@@ -311,7 +311,7 @@ function sunWindowLabel(tr) {
 }
 
 
-// ── 7. Shadow estimation ──────────────────────────────────────────────────────
+// 7. Shadow estimation
 
 function estimateShadow(tLat, tLon, sunAlt, sunAz) {
   if (sunAlt <= 0 || nearbyBuildings.length === 0) return false;
@@ -389,7 +389,7 @@ async function loadNearbyBuildings(lat, lon) {
 
 function effectiveStatus(tr) {
   const sun = getSun(tr.lat, tr.lon);
-  // Only rain (code 51+) blocks sun — clouds alone don't
+  // Only rain (code 51+) blocks sun clouds alone don't
   if (weatherData && isRainy(weatherData.weathercode)) return 'rainy';
   // Sun below horizon
   if (sun.status === 'shade') return 'shade';
@@ -411,7 +411,7 @@ function statusLabel(status) {
 }
 
 
-// ── 8. Overpass fetch with mirror fallback & retry ────────────────────────────
+// 8. Overpass fetch with mirror fallback & retry
 
 async function fetchOverpass(query, signal) {
   const mirrors = [
@@ -442,7 +442,7 @@ async function fetchOverpass(query, signal) {
 }
 
 
-// ── 9. Weather ────────────────────────────────────────────────────────────────
+// 9. Weather
 
 async function fetchWeather(lat, lon) {
   try {
@@ -482,7 +482,7 @@ function updateWeatherStrip() {
 }
 
 
-// ── 10. Map ───────────────────────────────────────────────────────────────────
+// 10. Map
 
 function initMap() {
   // Ensure map container has dimensions before init
@@ -547,7 +547,7 @@ function add3DBuildings() {
 }
 
 
-// ── 11. Location ──────────────────────────────────────────────────────────────
+// 11. Location
 
 function onLocationSuccess(lat, lon) {
   userLat = lat; userLon = lon;
@@ -585,7 +585,7 @@ function getUserLocation() {
     onLocationFallback();
   }
 
-  // Strategy 1: watchPosition — keeps trying and gives best available fix.
+  // Strategy 1: watchPosition keeps trying and gives best available fix.
   // On Android/iOS this is the most reliable approach.
   let watchId = null;
   let gotCoarse = false;
@@ -600,7 +600,7 @@ function getUserLocation() {
         if (watchId !== null) navigator.geolocation.clearWatch(watchId);
         done(lat, lon);
       } else if (!gotCoarse) {
-        // Got a rough fix — use it but keep watching for better
+        // Got a rough fix use it but keep watching for better
         gotCoarse = true;
         userLat = lat; userLon = lon;
       }
@@ -633,7 +633,7 @@ function getUserLocation() {
 }
 
 
-// ── 12. Terrace loading with deduplication ────────────────────────────────────
+// 12. Terrace loading with deduplication
 
 async function loadTerraces() {
   currentMarkers.forEach(m => m.remove());
@@ -641,13 +641,12 @@ async function loadTerraces() {
   closeInfo(); renderList();
   showToast(T().loading, 'info');
 
- const radius = 2200;
-const q = `[out:json][timeout:18];(
-  node["amenity"~"restaurant|bar|pub|cafe|fast_food"]["name"](around:${radius},${userLat},${userLon});
-  way["amenity"~"restaurant|bar|pub|cafe|fast_food"]["name"](around:${radius},${userLat},${userLon});
-  relation["amenity"~"restaurant|bar|pub|cafe|fast_food"]["name"](around:${radius},${userLat},${userLon});
-);out tags center;`;
-
+  const radius = 2200;
+  const q = `[out:json][timeout:18];(
+    node["amenity"~"restaurant|bar|pub|cafe|fast_food"]["name"](around:${radius},${userLat},${userLon});
+    way["amenity"~"restaurant|bar|pub|cafe|fast_food"]["name"](around:${radius},${userLat},${userLon});
+    relation["amenity"~"restaurant|bar|pub|cafe|fast_food"]["name"](around:${radius},${userLat},${userLon});
+  );out tags center;`;
 
   try {
     const ctrl = new AbortController();
@@ -660,7 +659,7 @@ const q = `[out:json][timeout:18];(
     const nodeMap = {};
     data.elements.forEach(el => { if (el.type === 'node') nodeMap[el.id] = { lat: el.lat, lon: el.lon }; });
 
-    // Deduplicate: group by (name + rounded coords) — OSM often has node + way for same venue
+    // Deduplicate: group by (name + rounded coords) OSM often has node + way for same venue
     const seen = new Map();
 
     data.elements.forEach(el => {
@@ -693,11 +692,9 @@ const q = `[out:json][timeout:18];(
       seen.set(key, true);
 
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-
-    const dist = haversine(userLat, userLon, lat, lon);
-    if (dist > radius) return;
-
-      const type = amenityToType(amenity);
+      const dist    = haversine(userLat, userLon, lat, lon);
+      if (dist > radius) return;
+      const type    = amenityToType(amenity);
       const hours   = el.tags?.opening_hours || null;
       const website = el.tags?.website || el.tags?.['contact:website'] || el.tags?.url || null;
       const phone   = el.tags?.phone || el.tags?.['contact:phone'] || null;
@@ -725,7 +722,7 @@ const q = `[out:json][timeout:18];(
 }
 
 
-// ── 13. Markers ───────────────────────────────────────────────────────────────
+// 13. Markers
 
 function addMarkers() {
   allTerraces.forEach((tr, i) => {
@@ -751,7 +748,7 @@ function updateMarkerColors() {
 }
 
 
-// ── 14. Filter & list ─────────────────────────────────────────────────────────
+// 14. Filter & list
 
 function setFilter(f, el) {
   activeFilter = f;
@@ -771,7 +768,7 @@ function getFiltered() {
   });
 }
 
-// ── Best suggestion card ─────────────────────────────────────────────────
+// Best suggestion card
 function getBestSuggestion() {
   // Find closest sunny terrace
   const sunny = allTerraces.find(tr => effectiveStatus(tr) === 'sunny');
@@ -824,8 +821,8 @@ function renderSuggestionCard() {
 }
 
 function renderList() {
-  const card = document.getElementById('suggestion-card');
-  if (card) card.style.display = 'none';
+  const suggestion = document.getElementById('suggestion-card');
+  if (suggestion) suggestion.style.display = 'none';
   const list = document.getElementById('terrace-list');
   const rows = getFiltered();
   document.getElementById('sheet-count').textContent = T().count(rows.length);
@@ -868,7 +865,7 @@ function renderList() {
 }
 
 
-// ── 15. Info panel ────────────────────────────────────────────────────────────
+// 15. Info panel
 
 function toggleSheet() {
   const sheet = document.getElementById('bottom-sheet');
@@ -898,8 +895,8 @@ function openInfo(index) {
   const st       = effectiveStatus(tr);
   const typeName = T().types[tr.type] || tr.type;
 
-  try { renderList(); } catch (e) { console.warn('List render failed:', e); }
-if (mapInstance) mapInstance.flyTo({ center: [tr.lon, tr.lat], zoom: 16, duration: 700 });
+  renderList();
+  if (mapInstance) mapInstance.flyTo({ center: [tr.lon, tr.lat], zoom: 16, duration: 700 });
 
   const ic = document.getElementById('info-icon');
   ic.className = st; ic.textContent = typeIcon(tr.type);
@@ -1000,13 +997,13 @@ function closeInfo() {
 }
 
 
-// ── 16. Notifications (Web Push — works on iOS 16.4+ PWA, Android Chrome) ────
+// 16. Notifications (Web Push works on iOS 16.4+ PWA, Android Chrome)
 //
 // Strategy:
-//  1. Ask for permission when user first taps monitor
-//  2. Use the Web Notifications API directly (no Capacitor plugin needed)
-//  3. On iOS: must be installed as a PWA (Add to Home Screen) for notifications to work
-//  4. Show in-app toast as fallback when notifications aren't available
+// 1. Ask for permission when user first taps monitor
+// 2. Use the Web Notifications API directly (no Capacitor plugin needed)
+// 3. On iOS: must be installed as a PWA (Add to Home Screen) for notifications to work
+// 4. Show in-app toast as fallback when notifications aren't available
 
 let notifPermission = 'default';
 
@@ -1036,7 +1033,7 @@ function sendNotification(title, body) {
 }
 
 
-// ── 17. Sun monitoring ────────────────────────────────────────────────────────
+// 17. Sun monitoring
 
 async function toggleMonitoring() {
   if (selectedIndex === null) return;
@@ -1071,9 +1068,9 @@ async function toggleMonitoring() {
 }
 
 
-// ── 18. Drink prices (localStorage + Supabase backend) ───────────────────────
+// 18. Drink prices (localStorage + Supabase backend)
 
-// ── Hidden terraces (community corrections) ──────────────────────────────
+// Hidden terraces (community corrections)
 function getHiddenTerraces() {
   try { return JSON.parse(localStorage.getItem('hidden_terraces') || '[]'); }
   catch(e) { return []; }
@@ -1120,7 +1117,7 @@ function venueKey(tr) {
     .replace(/[^a-zA-Z0-9_]/g, '_');
 }
 
-// Local prices (localStorage) — always available offline
+// Local prices (localStorage) always available offline
 function getLocalPrices(tr) {
   try { return JSON.parse(localStorage.getItem('prices_' + venueKey(tr)) || '{}'); }
   catch (e) { return {}; }
@@ -1139,7 +1136,7 @@ function saveCustomDrinks(tr, drinks) {
 }
 function allDrinksForVenue(tr) { return [...DEFAULT_DRINKS, ...getCustomDrinks(tr)]; }
 
-// Supabase sync — push price update to backend
+// Supabase sync push price update to backend
 async function syncPriceToBackend(tr, drinkId, price) {
   if (!supabaseReady) return;
   try {
@@ -1166,7 +1163,7 @@ async function syncPriceToBackend(tr, drinkId, price) {
   }
 }
 
-// Load prices from Supabase — merges with local prices, remote wins on conflict
+// Load prices from Supabase merges with local prices, remote wins on conflict
 async function loadPricesFromBackend(tr) {
   if (!supabaseReady) return;
   try {
@@ -1303,9 +1300,9 @@ async function savePriceModal() {
 }
 
 
-// ── 19. Boot ──────────────────────────────────────────────────────────────────
+// 19. Boot
 
-// ── Draggable bottom sheet ────────────────────────────────────────────────────
+// Draggable bottom sheet
 
 (function() {
   let dragging = false, startY = 0, startH = 0;
@@ -1382,3 +1379,4 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('search-input').placeholder = T().searchPh;
   initMap();
 });
+
