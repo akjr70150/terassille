@@ -216,6 +216,24 @@ function wxInfo(code) {
 }
 
 function isRainy(code)    { return (code >= 51 && code <= 67) || (code >= 80 && code <= 99); }
+
+// ── Opening hours helpers ─────────────────────────────────────────────────
+function isOpenNow(hoursStr) {
+  // Simple check — a full parser would be complex
+  // Returns true/false/null (null = unknown)
+  if (!hoursStr) return null;
+  if (hoursStr.toLowerCase().includes('24/7')) return true;
+  // For now just return null for complex strings — show raw string
+  return null;
+}
+
+function formatHours(hoursStr) {
+  if (!hoursStr) return null;
+  if (hoursStr === '24/7') return lang === 'fi' ? '24/7 auki' : 'Open 24/7';
+  // Clean up common OSM format Mo-Fr 10:00-22:00
+  return hoursStr.replace(/Mo/g,'Ma').replace(/Tu/g,'Ti').replace(/We/g,'Ke')
+    .replace(/Th/g,'To').replace(/Fr/g,'Pe').replace(/Sa/g,'La').replace(/Su/g,'Su');
+}
 function isOvercast(code) { return code >= 3; }
 
 // ── Sun window: calculate when sun is up for a spot today ─────────────────
@@ -673,9 +691,12 @@ async function loadTerraces() {
       if (seen.has(key) || alreadyNearby) return;
       seen.set(key, true);
 
-      const dist = haversine(userLat, userLon, lat, lon);
-      const type = amenityToType(amenity);
-      allTerraces.push({ name, lat, lon, dist, type });
+      const dist    = haversine(userLat, userLon, lat, lon);
+      const type    = amenityToType(amenity);
+      const hours   = el.tags?.opening_hours || null;
+      const website = el.tags?.website || el.tags?.['contact:website'] || el.tags?.url || null;
+      const phone   = el.tags?.phone || el.tags?.['contact:phone'] || null;
+      allTerraces.push({ name, lat, lon, dist, type, hours, website, phone });
     });
 
     // Filter out hidden terraces
@@ -744,7 +765,60 @@ function getFiltered() {
   });
 }
 
+// ── Best suggestion card ─────────────────────────────────────────────────
+function getBestSuggestion() {
+  // Find closest sunny terrace
+  const sunny = allTerraces.find(tr => effectiveStatus(tr) === 'sunny');
+  if (sunny) return sunny;
+  // Fall back to closest leaving
+  const leaving = allTerraces.find(tr => effectiveStatus(tr) === 'leaving');
+  if (leaving) return leaving;
+  // Fall back to just closest
+  return allTerraces[0] || null;
+}
+
+function renderSuggestionCard() {
+  const card = document.getElementById('suggestion-card');
+  if (!card) return;
+  if (allTerraces.length === 0) { card.style.display = 'none'; return; }
+
+  const tr = getBestSuggestion();
+  if (!tr) { card.style.display = 'none'; return; }
+
+  const st  = effectiveStatus(tr);
+  const sw  = sunWindowLabel(tr);
+  const gi  = allTerraces.indexOf(tr);
+  const fmt = formatHours(tr.hours);
+  const isEn = lang === 'en';
+
+  card.style.display = 'flex';
+  card.onclick = () => openInfo(gi);
+
+  document.getElementById('sc-icon').textContent  = typeIcon(tr.type);
+  document.getElementById('sc-icon').className    = 'sc-icon ' + st;
+  document.getElementById('sc-name').textContent  = tr.name;
+  document.getElementById('sc-type').textContent  = (T().types[tr.type] || tr.type) + ' · ' + distStr(tr.dist);
+  document.getElementById('sc-badge').textContent = statusLabel(st);
+  document.getElementById('sc-badge').className   = 'sun-badge ' + st;
+  document.getElementById('sc-window').textContent = sw;
+
+  const hoursDiv = document.getElementById('sc-hours');
+  if (hoursDiv) {
+    hoursDiv.textContent = fmt ? (isEn ? '🕐 ' : '🕐 ') + fmt : '';
+    hoursDiv.style.display = fmt ? 'block' : 'none';
+  }
+  const webDiv = document.getElementById('sc-website');
+  if (webDiv && tr.website) {
+    webDiv.style.display = 'block';
+    webDiv.href = tr.website.startsWith('http') ? tr.website : 'https://' + tr.website;
+    webDiv.textContent = '🌐 ' + tr.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+  } else if (webDiv) {
+    webDiv.style.display = 'none';
+  }
+}
+
 function renderList() {
+  renderSuggestionCard();
   const list = document.getElementById('terrace-list');
   const rows = getFiltered();
   document.getElementById('sheet-count').textContent = T().count(rows.length);
@@ -856,6 +930,31 @@ function openInfo(index) {
     document.getElementById('iw-temp').textContent = weatherData.temp + '°C';
   } else {
     wxRow.classList.remove('show');
+  }
+
+  // Opening hours
+  const hoursEl = document.getElementById('info-hours');
+  if (hoursEl) {
+    const fmt = formatHours(tr.hours);
+    if (fmt) {
+      hoursEl.style.display = 'flex';
+      document.getElementById('info-hours-text').textContent = fmt;
+    } else {
+      hoursEl.style.display = 'none';
+    }
+  }
+
+  // Website
+  const webEl = document.getElementById('info-website');
+  if (webEl) {
+    if (tr.website) {
+      webEl.style.display = 'flex';
+      const link = document.getElementById('info-website-link');
+      link.href = tr.website.startsWith('http') ? tr.website : 'https://' + tr.website;
+      link.textContent = tr.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+    } else {
+      webEl.style.display = 'none';
+    }
   }
 
   const isOn = monitoringIndex === index;
