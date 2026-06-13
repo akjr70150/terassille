@@ -189,8 +189,6 @@ function getSun(lat, lon) {
 function typeIcon(type) {
   if (type === 'bar' || type === 'pub') return '🍺';
   if (type === 'cafe') return '☕';
-  if (type === 'park') return '🌳';
-  if (type === 'beach') return '🏖';
   return '🍽';
 }
 
@@ -198,8 +196,6 @@ function amenityToType(amenity) {
   if (amenity === 'bar')  return 'bar';
   if (amenity === 'pub')  return 'pub';
   if (amenity === 'cafe') return 'cafe';
-  if (amenity === 'park' || amenity === 'leisure_park') return 'park';
-  if (amenity === 'beach' || amenity === 'natural_beach') return 'beach';
   return 'restaurant';
 }
 
@@ -627,15 +623,9 @@ async function loadTerraces() {
 
   const d    = 0.07;
   const bbox = `${userLat - d},${userLon - d},${userLat + d},${userLon + d}`;
-  const q    = `[out:json][timeout:30];(`
+  const q    = `[out:json][timeout:25];(`
              + `node["amenity"~"restaurant|bar|pub|cafe"]["outdoor_seating"="yes"](${bbox});`
              + `way["amenity"~"restaurant|bar|pub|cafe"]["outdoor_seating"="yes"](${bbox});`
-             + `node["leisure"="park"](${bbox});`
-             + `way["leisure"="park"](${bbox});`
-             + `node["natural"="beach"](${bbox});`
-             + `way["natural"="beach"](${bbox});`
-             + `node["leisure"="swimming_area"](${bbox});`
-             + `way["leisure"="swimming_area"](${bbox});`
              + `);out body;>;out skel qt;`;
 
   try {
@@ -655,12 +645,7 @@ async function loadTerraces() {
     data.elements.forEach(el => {
       let lat, lon;
       const name    = el.tags?.name || (lang === 'fi' ? 'Terassi' : 'Terrace');
-      const leisure = el.tags?.leisure;
-      const natural = el.tags?.natural;
-      const amenity = leisure === 'park' ? 'park'
-                    : leisure === 'swimming_area' ? 'beach'
-                    : natural === 'beach' ? 'beach'
-                    : el.tags?.amenity || 'restaurant';
+      const amenity = el.tags?.amenity || 'restaurant';
 
       if (el.type === 'node') {
         lat = el.lat; lon = el.lon;
@@ -712,18 +697,12 @@ async function loadTerraces() {
 function addMarkers() {
   allTerraces.forEach((tr, i) => {
     const el = document.createElement('div');
-    const isPark   = tr.type === 'park';
-    const isBeach  = tr.type === 'beach';
-    const stClass  = effectiveStatus(tr);
-    if (isPark)   el.className = `cmarker park-marker ${stClass}`;
-    else if (isBeach) el.className = `cmarker beach-marker ${stClass}`;
-    else          el.className = 'cmarker ' + stClass;
+    el.className = 'cmarker ' + effectiveStatus(tr);
     el.innerHTML = `<span class="cmarker-inner">${typeIcon(tr.type)}</span>`;
     el.addEventListener('click', e => { e.stopPropagation(); openInfo(i); });
-    const anchor = (isPark || isBeach) ? 'center' : 'bottom';
     const m = new maplibregl.Marker({
       element:           el,
-      anchor,
+      anchor:            'bottom',
       pitchAlignment:    'map',
       rotationAlignment: 'map',
     }).setLngLat([tr.lon, tr.lat]).addTo(mapInstance);
@@ -755,8 +734,6 @@ function getFiltered() {
     if (activeFilter === 'bar')        return tr.type === 'bar' || tr.type === 'pub';
     if (activeFilter === 'cafe')       return tr.type === 'cafe';
     if (activeFilter === 'restaurant') return tr.type === 'restaurant';
-    if (activeFilter === 'park')       return tr.type === 'park';
-    if (activeFilter === 'beach')      return tr.type === 'beach';
     return true;
   });
 }
