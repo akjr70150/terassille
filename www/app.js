@@ -25,6 +25,13 @@ let searchQuery     = '';
 let toastTimer      = null;
 let weatherData     = null;
 let nearbyBuildings = [];
+let locationWatchId = null;
+let lastLoadedLat    = null;
+let lastLoadedLon    = null;
+let lastLocationRefreshAt = 0;
+
+const LOCATION_REFRESH_DISTANCE = 700;
+const LOCATION_REFRESH_COOLDOWN = 60000;
 
 // Supabase config replace with your project URL and anon key
 const SUPABASE_URL     = 'https://YOUR_PROJECT.supabase.co';
@@ -551,6 +558,8 @@ function add3DBuildings() {
 
 function onLocationSuccess(lat, lon) {
   userLat = lat; userLon = lon;
+  lastLoadedLat = lat; lastLoadedLon = lon;
+  lastLocationRefreshAt = Date.now();
   showToast(T().located, 'success');
   if (mapInstance) {
     mapInstance.flyTo({ center: [userLon, userLat], zoom: 14, duration: 1200 });
@@ -560,16 +569,59 @@ function onLocationSuccess(lat, lon) {
   loadTerraces();
 }
 
+function updateLocationAfterMovement(lat, lon, accuracy) {
+  if (accuracy > 200 || lastLoadedLat === null || lastLoadedLon === null) return;
+
+  const moved = haversine(lastLoadedLat, lastLoadedLon, lat, lon);
+  const threshold = Math.max(LOCATION_REFRESH_DISTANCE, accuracy * 3);
+  const cooldownPassed = Date.now() - lastLocationRefreshAt >= LOCATION_REFRESH_COOLDOWN;
+  if (moved < threshold || !cooldownPassed) return;
+
+  userLat = lat; userLon = lon;
+  lastLoadedLat = lat; lastLoadedLon = lon;
+  lastLocationRefreshAt = Date.now();
+
+  if (mapInstance) {
+    mapInstance.flyTo({ center: [userLon, userLat], zoom: 14, duration: 900 });
+  }
+  fetchWeather(userLat, userLon);
+  loadNearbyBuildings(userLat, userLon);
+  loadTerraces();
+}
+
 function onLocationFallback() {
+  lastLoadedLat = userLat; lastLoadedLon = userLon;
+  lastLocationRefreshAt = Date.now();
   showToast(T().locFallback, 'warning');
   fetchWeather(userLat, userLon);
   loadNearbyBuildings(userLat, userLon);
   loadTerraces();
 }
 
+function checkLocationAfterResume() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      if (lastLoadedLat === null || lastLoadedLon === null) {
+        onLocationSuccess(latitude, longitude);
+      } else {
+        updateLocationAfterMovement(latitude, longitude, accuracy);
+      }
+    },
+    err => console.warn('Resume location check failed:', err.code, err.message),
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
+  );
+}
+
 function getUserLocation() {
   showToast(T().locating, 'info');
   if (!navigator.geolocation) { onLocationFallback(); return; }
+
+  if (locationWatchId !== null) {
+    navigator.geolocation.clearWatch(locationWatchId);
+    locationWatchId = null;
+  }
 
   let settled = false;
 
@@ -587,18 +639,16 @@ function getUserLocation() {
 
   // Strategy 1: watchPosition keeps trying and gives best available fix.
   // On Android/iOS this is the most reliable approach.
-  let watchId = null;
   let gotCoarse = false;
 
-  watchId = navigator.geolocation.watchPosition(
+  locationWatchId = navigator.geolocation.watchPosition(
     pos => {
       const { latitude: lat, longitude: lon, accuracy } = pos.coords;
       console.log('Location fix:', lat, lon, 'accuracy:', accuracy + 'm');
 
-      // Accept any fix under 500m accuracy, or immediately accept if high accuracy
-      if (accuracy < 500 || accuracy < 100) {
-        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-        done(lat, lon);
+      if (accuracy < 500) {
+        if (!settled) done(lat, lon);
+        else updateLocationAfterMovement(lat, lon, accuracy);
       } else if (!gotCoarse) {
         // Got a rough fix use it but keep watching for better
         gotCoarse = true;
@@ -607,7 +657,7 @@ function getUserLocation() {
     },
     err => {
       console.warn('watchPosition error:', err.code, err.message);
-      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (settled) return;
       // Try one-shot high accuracy as fallback
       navigator.geolocation.getCurrentPosition(
         pos => done(pos.coords.latitude, pos.coords.longitude),
@@ -625,7 +675,6 @@ function getUserLocation() {
   // Hard fallback: if nothing after 20s, use coarse or Helsinki default
   setTimeout(() => {
     if (!settled) {
-      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
       if (gotCoarse) done(userLat, userLon);
       else fail();
     }
@@ -874,11 +923,15 @@ function toggleSheet() {
   if (isCollapsed) {
     sheet.classList.remove('collapsed');
     btn.classList.remove('collapsed');
-    document.documentElement.style.setProperty('--sheet-height', '48vh');
+    if (window.innerWidth < 900) {
+      document.documentElement.style.setProperty('--sheet-height', '48vh');
+    }
   } else {
     sheet.classList.add('collapsed');
     btn.classList.add('collapsed');
-    document.documentElement.style.setProperty('--sheet-height', '44px');
+    if (window.innerWidth < 900) {
+      document.documentElement.style.setProperty('--sheet-height', '44px');
+    }
   }
   setTimeout(() => { if (mapInstance) mapInstance.resize(); }, 260);
 }
@@ -1361,7 +1414,10 @@ async function savePriceModal() {
 })();
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && mapInstance) mapInstance.resize();
+  if (document.visibilityState === 'visible') {
+    if (mapInstance) mapInstance.resize();
+    checkLocationAfterResume();
+  }
 });
 window.addEventListener('orientationchange', () => {
   setTimeout(() => { if (mapInstance) mapInstance.resize(); }, 300);
