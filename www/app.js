@@ -1055,6 +1055,7 @@ function openInfo(index) {
   document.getElementById('info-close').classList.add('visible');
   document.getElementById('info-panel').classList.add('open');
   renderPriceList();
+  loadPricesFromBackend(tr);
 }
 
 function closeInfo() {
