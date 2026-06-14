@@ -1208,28 +1208,32 @@ function allDrinksForVenue(tr) { return [...DEFAULT_DRINKS, ...getCustomDrinks(t
 async function syncPriceToBackend(tr, drinkId, price) {
   if (!supabaseReady) return;
   try {
-    await fetch(
-  `${SUPABASE_URL}/rest/v1/prices?on_conflict=venue_key,drink_id`,{
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_ANON,
-        'Authorization': `Bearer ${SUPABASE_ANON}`,
-        'Prefer': 'resolution=merge-duplicates',
-      },
-      body: JSON.stringify({
-        venue_key:  venueKey(tr),
-        venue_name: tr.name,
-        lat:        tr.lat,
-        lon:        tr.lon,
-        drink_id:   drinkId,
-        price:      price,
-        updated_at: new Date().toISOString(),
-      }),
-    });
-  } catch (e) {
-    console.warn('Supabase sync failed:', e);
+   const res = await fetch(
+  `${SUPABASE_URL}/rest/v1/prices?on_conflict=venue_key,drink_id`,
+  {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON,
+      'Authorization': `Bearer ${SUPABASE_ANON}`,
+      'Prefer': 'resolution=merge-duplicates'
+    },
+    body: JSON.stringify({
+      venue_key: venueKey(tr),
+      venue_name: tr.name,
+      lat: tr.lat,
+      lon: tr.lon,
+      drink_id: drinkId,
+      price: price,
+      updated_at: new Date().toISOString()
+    })
   }
+);
+
+if (!res.ok) {
+  console.error('Supabase save failed:', await res.text());
+} else {
+  console.log('Price saved successfully');
 }
 
 // Load prices from Supabase merges with local prices, remote wins on conflict
