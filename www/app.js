@@ -1208,7 +1208,8 @@ function allDrinksForVenue(tr) { return [...DEFAULT_DRINKS, ...getCustomDrinks(t
 async function syncPriceToBackend(tr, drinkId, price) {
   if (!supabaseReady) return;
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/prices`, {
+    await fetch(
+  `${SUPABASE_URL}/rest/v1/prices?on_conflict=venue_key,drink_id`,{
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
