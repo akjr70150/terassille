@@ -1,15 +1,15 @@
 // =============================================================================
-// app.js Terassille
+// app.js — Terassille
 // Fixes in this version:
-// - Marker deduplication (no more clusters of 20 pins on one spot)
-// - Overpass retry with fallback mirror + rate-limit handling
-// - Shadow re-render guaranteed after buildings load
-// - Web Push Notifications (works on iOS 16.4+ and Android)
-// - Supabase backend for shared drink prices
+//  - Marker deduplication (no more clusters of 20 pins on one spot)
+//  - Overpass retry with fallback mirror + rate-limit handling
+//  - Shadow re-render guaranteed after buildings load
+//  - Web Push Notifications (works on iOS 16.4+ and Android)
+//  - Supabase backend for shared drink prices
 // =============================================================================
 
 
-// 1. State
+// ── 1. State ─────────────────────────────────────────────────────────────────
 
 let lang            = 'fi';
 let userLat         = 60.1699;
@@ -25,23 +25,13 @@ let searchQuery     = '';
 let toastTimer      = null;
 let weatherData     = null;
 let nearbyBuildings = [];
-let locationWatchId = null;
-let lastLoadedLat    = null;
-let lastLoadedLon    = null;
-let lastLocationRefreshAt = 0;
 
-const LOCATION_REFRESH_DISTANCE = 700;
-const LOCATION_REFRESH_COOLDOWN = 60000;
-const LOCAL_SEARCH_RADIUS = 3000;
-const RURAL_SEARCH_RADIUS = 12000;
-const MIN_LOCAL_RESULTS = 8;
-
-// Supabase config replace with your project URL and anon key
-const SUPABASE_URL     = 'https://YOUR_PROJECT.supabase.co';
-const SUPABASE_ANON    = 'YOUR_ANON_KEY';
+// Supabase config — replace with your project URL and anon key
+const SUPABASE_URL     = 'https://ymaegemrvxlqrznmecps.supabase.co';
+const SUPABASE_ANON    = 'sb_publishable_HueqCqivzQm-bGvfTzOiLg_dj2sSy6d';
 let   supabaseReady    = false;
 
-// Overpass API mirrors tried in order on failure
+// Overpass API mirrors — tried in order on failure
 const OVERPASS_MIRRORS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
@@ -49,7 +39,7 @@ const OVERPASS_MIRRORS = [
 ];
 
 
-// 2. Translations
+// ── 2. Translations ───────────────────────────────────────────────────────────
 
 const STRINGS = {
   fi: {
@@ -63,7 +53,7 @@ const STRINGS = {
     loading:     'Haetaan terasseja...',
     loaded:       n => `${n} terassia löydetty ✓`,
     noTerraces:  'Ei terasseja löydetty alueella',
-    locFallback: 'Sijainti ei saatavilla – käytetään viimeistä sijaintia',
+    locFallback: 'Sijainti ei saatavilla – käytetään Helsinkiä',
     loadError:   'Lataus epäonnistui – yritä uudelleen',
     sunny:       'Aurinkoinen',
     leaving:     'Aurinko lähtee',
@@ -79,8 +69,8 @@ const STRINGS = {
     nextSug:      n => `Kokeile: ${n}`,
     notifGranted: 'Ilmoitukset käytössä ✓',
     notifDenied:  'Ilmoitukset estetty',
-    types: { bar: 'Baari', pub: 'Pubi', cafe: 'Kahvila', restaurant: 'Ravintola' },
-    chips: ['Kaikki', '☀ Aurinkoinen', 'Baari', 'Kahvila', 'Ravintola'],
+    types: { bar: 'Baari', pub: 'Pubi', cafe: 'Kahvila', restaurant: 'Ravintola', park: 'Puisto', beach: 'Ranta' },
+    chips: ['Kaikki', '☀ Aurinkoinen', 'Baari', 'Kahvila', 'Ravintola', '🌳 Puisto', '🏖 Ranta'],
     sunWindow: (from, to) => `☀ klo ${from} – ${to}`,
     sunWindowAllDay: '☀ Aurinkoinen koko päivän',
     sunWindowNone: '☁ Ei aurinkoa tänään',
@@ -98,7 +88,7 @@ const STRINGS = {
     loading:     'Loading terraces...',
     loaded:       n => `${n} terraces found ✓`,
     noTerraces:  'No terraces found in this area',
-    locFallback: 'Location unavailable – using last known location',
+    locFallback: 'Location unavailable – using Helsinki',
     loadError:   'Loading failed – try again',
     sunny:       'Sunny',
     leaving:     'Sun leaving',
@@ -114,8 +104,8 @@ const STRINGS = {
     nextSug:      n => `Try next: ${n}`,
     notifGranted: 'Notifications enabled ✓',
     notifDenied:  'Notifications blocked',
-    types: { bar: 'Bar', pub: 'Pub', cafe: 'Café', restaurant: 'Restaurant' },
-    chips: ['All', '☀ Sunny', 'Bar', 'Café', 'Restaurant'],
+    types: { bar: 'Bar', pub: 'Pub', cafe: 'Café', restaurant: 'Restaurant', park: 'Park', beach: 'Beach' },
+    chips: ['All', '☀ Sunny', 'Bar', 'Café', 'Restaurant', '🌳 Park', '🏖 Beach'],
     sunWindow: (from, to) => `☀ ${from} – ${to}`,
     sunWindowAllDay: '☀ Sunny all day',
     sunWindowNone: '☁ No sun today',
@@ -126,7 +116,7 @@ const STRINGS = {
 const T = () => STRINGS[lang];
 
 
-// 3. Language
+// ── 3. Language ───────────────────────────────────────────────────────────────
 
 function switchLanguage(l) {
   lang = l;
@@ -146,7 +136,7 @@ function switchLanguage(l) {
 }
 
 
-// 4. Toast
+// ── 4. Toast ──────────────────────────────────────────────────────────────────
 
 function showToast(msg, type = 'warning') {
   const el = document.getElementById('toast');
@@ -157,7 +147,7 @@ function showToast(msg, type = 'warning') {
 }
 
 
-// 5. Search
+// ── 5. Search ─────────────────────────────────────────────────────────────────
 
 function onSearch(val) {
   searchQuery = val.trim().toLowerCase();
@@ -174,7 +164,7 @@ function clearSearch() {
 }
 
 
-// 6. Helpers
+// ── 6. Helpers ────────────────────────────────────────────────────────────────
 
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371000;
@@ -227,13 +217,13 @@ function wxInfo(code) {
 
 function isRainy(code)    { return (code >= 51 && code <= 67) || (code >= 80 && code <= 99); }
 
-// Opening hours helpers
+// ── Opening hours helpers ─────────────────────────────────────────────────
 function isOpenNow(hoursStr) {
-  // Simple check a full parser would be complex
+  // Simple check — a full parser would be complex
   // Returns true/false/null (null = unknown)
   if (!hoursStr) return null;
   if (hoursStr.toLowerCase().includes('24/7')) return true;
-  // For now just return null for complex strings show raw string
+  // For now just return null for complex strings — show raw string
   return null;
 }
 
@@ -246,7 +236,7 @@ function formatHours(hoursStr) {
 }
 function isOvercast(code) { return code >= 3; }
 
-// Sun window: calculate when sun is up for a spot today
+// ── Sun window: calculate when sun is up for a spot today ─────────────────
 // Returns { from: 'HH:MM', to: 'HH:MM', allDay: bool, none: bool }
 function calcSunWindow(lat, lon) {
   const now   = new Date();
@@ -321,7 +311,7 @@ function sunWindowLabel(tr) {
 }
 
 
-// 7. Shadow estimation
+// ── 7. Shadow estimation ──────────────────────────────────────────────────────
 
 function estimateShadow(tLat, tLon, sunAlt, sunAz) {
   if (sunAlt <= 0 || nearbyBuildings.length === 0) return false;
@@ -367,7 +357,7 @@ async function loadNearbyBuildings(lat, lon) {
     data.elements.forEach(el => { if (el.type === 'node') nodes[el.id] = { lat: el.lat, lon: el.lon }; });
     data.elements.forEach(el => {
       if (el.type !== 'way') return;
-      // Use tagged height, levels*3.2, or assume 13m.
+      // Use tagged height, levels*3.2, or assume 13m (Helsinki avg ~4 floors)
       const h = parseFloat(el.tags?.['building:height'] || el.tags?.height || 0)
               || (parseInt(el.tags?.['building:levels'] || el.tags?.levels || 0) || 0) * 3.2
               || 13;
@@ -399,7 +389,7 @@ async function loadNearbyBuildings(lat, lon) {
 
 function effectiveStatus(tr) {
   const sun = getSun(tr.lat, tr.lon);
-  // Only rain (code 51+) blocks sun clouds alone don't
+  // Only rain (code 51+) blocks sun — clouds alone don't
   if (weatherData && isRainy(weatherData.weathercode)) return 'rainy';
   // Sun below horizon
   if (sun.status === 'shade') return 'shade';
@@ -421,7 +411,7 @@ function statusLabel(status) {
 }
 
 
-// 8. Overpass fetch with mirror fallback & retry
+// ── 8. Overpass fetch with mirror fallback & retry ────────────────────────────
 
 async function fetchOverpass(query, signal) {
   const mirrors = [
@@ -452,7 +442,7 @@ async function fetchOverpass(query, signal) {
 }
 
 
-// 9. Weather
+// ── 9. Weather ────────────────────────────────────────────────────────────────
 
 async function fetchWeather(lat, lon) {
   try {
@@ -492,7 +482,7 @@ function updateWeatherStrip() {
 }
 
 
-// 10. Map
+// ── 10. Map ───────────────────────────────────────────────────────────────────
 
 function initMap() {
   // Ensure map container has dimensions before init
@@ -557,15 +547,10 @@ function add3DBuildings() {
 }
 
 
-// 11. Location
+// ── 11. Location ──────────────────────────────────────────────────────────────
 
 function onLocationSuccess(lat, lon) {
   userLat = lat; userLon = lon;
-  lastLoadedLat = lat; lastLoadedLon = lon;
-  lastLocationRefreshAt = Date.now();
-  try {
-    localStorage.setItem('last_location', JSON.stringify({ lat, lon }));
-  } catch (e) {}
   showToast(T().located, 'success');
   if (mapInstance) {
     mapInstance.flyTo({ center: [userLon, userLat], zoom: 14, duration: 1200 });
@@ -575,66 +560,16 @@ function onLocationSuccess(lat, lon) {
   loadTerraces();
 }
 
-function updateLocationAfterMovement(lat, lon, accuracy) {
-  if (accuracy > 200 || lastLoadedLat === null || lastLoadedLon === null) return;
-
-  const moved = haversine(lastLoadedLat, lastLoadedLon, lat, lon);
-  const threshold = Math.max(LOCATION_REFRESH_DISTANCE, accuracy * 3);
-  const cooldownPassed = Date.now() - lastLocationRefreshAt >= LOCATION_REFRESH_COOLDOWN;
-  if (moved < threshold || !cooldownPassed) return;
-
-  userLat = lat; userLon = lon;
-  lastLoadedLat = lat; lastLoadedLon = lon;
-  lastLocationRefreshAt = Date.now();
-
-  if (mapInstance) {
-    mapInstance.flyTo({ center: [userLon, userLat], zoom: 14, duration: 900 });
-  }
-  fetchWeather(userLat, userLon);
-  loadNearbyBuildings(userLat, userLon);
-  loadTerraces();
-}
-
 function onLocationFallback() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('last_location') || 'null');
-    if (Number.isFinite(saved?.lat) && Number.isFinite(saved?.lon)) {
-      userLat = saved.lat;
-      userLon = saved.lon;
-    }
-  } catch (e) {}
-  lastLoadedLat = userLat; lastLoadedLon = userLon;
-  lastLocationRefreshAt = Date.now();
   showToast(T().locFallback, 'warning');
   fetchWeather(userLat, userLon);
   loadNearbyBuildings(userLat, userLon);
   loadTerraces();
 }
 
-function checkLocationAfterResume() {
-  if (!navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(
-    pos => {
-      const { latitude, longitude, accuracy } = pos.coords;
-      if (lastLoadedLat === null || lastLoadedLon === null) {
-        onLocationSuccess(latitude, longitude);
-      } else {
-        updateLocationAfterMovement(latitude, longitude, accuracy);
-      }
-    },
-    err => console.warn('Resume location check failed:', err.code, err.message),
-    { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
-  );
-}
-
 function getUserLocation() {
   showToast(T().locating, 'info');
   if (!navigator.geolocation) { onLocationFallback(); return; }
-
-  if (locationWatchId !== null) {
-    navigator.geolocation.clearWatch(locationWatchId);
-    locationWatchId = null;
-  }
 
   let settled = false;
 
@@ -650,27 +585,29 @@ function getUserLocation() {
     onLocationFallback();
   }
 
-  // Strategy 1: watchPosition keeps trying and gives best available fix.
+  // Strategy 1: watchPosition — keeps trying and gives best available fix.
   // On Android/iOS this is the most reliable approach.
+  let watchId = null;
   let gotCoarse = false;
 
-  locationWatchId = navigator.geolocation.watchPosition(
+  watchId = navigator.geolocation.watchPosition(
     pos => {
       const { latitude: lat, longitude: lon, accuracy } = pos.coords;
       console.log('Location fix:', lat, lon, 'accuracy:', accuracy + 'm');
 
-      if (accuracy < 500) {
-        if (!settled) done(lat, lon);
-        else updateLocationAfterMovement(lat, lon, accuracy);
+      // Accept any fix under 500m accuracy, or immediately accept if high accuracy
+      if (accuracy < 500 || accuracy < 100) {
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        done(lat, lon);
       } else if (!gotCoarse) {
-        // Got a rough fix use it but keep watching for better
+        // Got a rough fix — use it but keep watching for better
         gotCoarse = true;
         userLat = lat; userLon = lon;
       }
     },
     err => {
       console.warn('watchPosition error:', err.code, err.message);
-      if (settled) return;
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
       // Try one-shot high accuracy as fallback
       navigator.geolocation.getCurrentPosition(
         pos => done(pos.coords.latitude, pos.coords.longitude),
@@ -685,9 +622,10 @@ function getUserLocation() {
     { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
   );
 
-  // Hard fallback: use a coarse fix, last known location, or the initial default.
+  // Hard fallback: if nothing after 20s, use coarse or Helsinki default
   setTimeout(() => {
     if (!settled) {
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
       if (gotCoarse) done(userLat, userLon);
       else fail();
     }
@@ -695,19 +633,20 @@ function getUserLocation() {
 }
 
 
-// 12. Terrace loading with deduplication
+// ── 12. Terrace loading with deduplication ────────────────────────────────────
 
-async function loadTerraces(radius = LOCAL_SEARCH_RADIUS, allowExpand = true) {
+async function loadTerraces() {
   currentMarkers.forEach(m => m.remove());
   currentMarkers = []; allTerraces = []; selectedIndex = null;
   closeInfo(); renderList();
   showToast(T().loading, 'info');
 
-  const q = `[out:json][timeout:18];(
-    node["amenity"~"restaurant|bar|pub|cafe|fast_food|biergarten|beer_garden"]["name"](around:${radius},${userLat},${userLon});
-    way["amenity"~"restaurant|bar|pub|cafe|fast_food|biergarten|beer_garden"]["name"](around:${radius},${userLat},${userLon});
-    relation["amenity"~"restaurant|bar|pub|cafe|fast_food|biergarten|beer_garden"]["name"](around:${radius},${userLat},${userLon});
-  );out tags center;`;
+  const d    = 0.025; // ~2.5km radius
+  const bbox = `${userLat - d},${userLon - d},${userLat + d},${userLon + d}`;
+  const q    = `[out:json][timeout:25];(`
+             + `node["amenity"~"restaurant|bar|pub|cafe"]["outdoor_seating"="yes"]["name"](${bbox});`
+             + `way["amenity"~"restaurant|bar|pub|cafe"]["outdoor_seating"="yes"]["name"](${bbox});`
+             + `);out body;>;out skel qt;`;
 
   try {
     const ctrl = new AbortController();
@@ -720,7 +659,7 @@ async function loadTerraces(radius = LOCAL_SEARCH_RADIUS, allowExpand = true) {
     const nodeMap = {};
     data.elements.forEach(el => { if (el.type === 'node') nodeMap[el.id] = { lat: el.lat, lon: el.lon }; });
 
-    // Deduplicate: group by (name + rounded coords) OSM often has node + way for same venue
+    // Deduplicate: group by (name + rounded coords) — OSM often has node + way for same venue
     const seen = new Map();
 
     data.elements.forEach(el => {
@@ -730,17 +669,17 @@ async function loadTerraces(radius = LOCAL_SEARCH_RADIUS, allowExpand = true) {
 
       if (el.type === 'node') {
         lat = el.lat; lon = el.lon;
-      } else if (el.type === 'way' || el.type === 'relation') {
-  if (el.center) {
-    lat = el.center.lat;
-    lon = el.center.lon;
-  } else {
-    const pts = el.geometry ? el.geometry : (el.nodes || []).map(id => nodeMap[id]).filter(Boolean);
-    if (pts.length < 2) return;
-    lat = pts.reduce((s, g) => s + g.lat, 0) / pts.length;
-    lon = pts.reduce((s, g) => s + g.lon, 0) / pts.length;
-  }
-}
+      } else if (el.type === 'way') {
+        // Use explicit geometry if available, else look up node coords
+        const pts = el.geometry
+          ? el.geometry
+          : (el.nodes || []).map(id => nodeMap[id]).filter(Boolean);
+        if (pts.length < 2) return;
+        lat = pts.reduce((s, g) => s + g.lat, 0) / pts.length;
+        lon = pts.reduce((s, g) => s + g.lon, 0) / pts.length;
+      } else {
+        return;
+      }
 
       // Deduplicate by name + coords rounded to ~1m grid
       // Also catch same venue with slightly different coords (node vs way centroid)
@@ -752,9 +691,7 @@ async function loadTerraces(radius = LOCAL_SEARCH_RADIUS, allowExpand = true) {
       if (seen.has(key) || alreadyNearby) return;
       seen.set(key, true);
 
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
       const dist    = haversine(userLat, userLon, lat, lon);
-      if (dist > radius) return;
       const type    = amenityToType(amenity);
       const hours   = el.tags?.opening_hours || null;
       const website = el.tags?.website || el.tags?.['contact:website'] || el.tags?.url || null;
@@ -767,10 +704,6 @@ async function loadTerraces(radius = LOCAL_SEARCH_RADIUS, allowExpand = true) {
     allTerraces = allTerraces.filter(tr => !hidden.includes(hideKey(tr)));
 
     allTerraces.sort((a, b) => a.dist - b.dist);
-
-    if (allowExpand && allTerraces.length < MIN_LOCAL_RESULTS) {
-      return loadTerraces(RURAL_SEARCH_RADIUS, false);
-    }
 
     if (allTerraces.length === 0) {
       showToast(T().noTerraces, 'warning');
@@ -786,7 +719,7 @@ async function loadTerraces(radius = LOCAL_SEARCH_RADIUS, allowExpand = true) {
 }
 
 
-// 13. Markers
+// ── 13. Markers ───────────────────────────────────────────────────────────────
 
 function addMarkers() {
   allTerraces.forEach((tr, i) => {
@@ -812,7 +745,7 @@ function updateMarkerColors() {
 }
 
 
-// 14. Filter & list
+// ── 14. Filter & list ─────────────────────────────────────────────────────────
 
 function setFilter(f, el) {
   activeFilter = f;
@@ -832,7 +765,7 @@ function getFiltered() {
   });
 }
 
-// Best suggestion card
+// ── Best suggestion card ─────────────────────────────────────────────────
 function getBestSuggestion() {
   // Find closest sunny terrace
   const sunny = allTerraces.find(tr => effectiveStatus(tr) === 'sunny');
@@ -885,8 +818,7 @@ function renderSuggestionCard() {
 }
 
 function renderList() {
-  const suggestion = document.getElementById('suggestion-card');
-  if (suggestion) suggestion.style.display = 'none';
+  renderSuggestionCard();
   const list = document.getElementById('terrace-list');
   const rows = getFiltered();
   document.getElementById('sheet-count').textContent = T().count(rows.length);
@@ -929,7 +861,7 @@ function renderList() {
 }
 
 
-// 15. Info panel
+// ── 15. Info panel ────────────────────────────────────────────────────────────
 
 function toggleSheet() {
   const sheet = document.getElementById('bottom-sheet');
@@ -938,27 +870,18 @@ function toggleSheet() {
   if (isCollapsed) {
     sheet.classList.remove('collapsed');
     btn.classList.remove('collapsed');
-    if (window.innerWidth < 900) {
-      document.documentElement.style.setProperty('--sheet-height', '48vh');
-    }
+    document.documentElement.style.setProperty('--sheet-height', '48vh');
   } else {
     sheet.classList.add('collapsed');
     btn.classList.add('collapsed');
-    if (window.innerWidth < 900) {
-      document.documentElement.style.setProperty('--sheet-height', '44px');
-    }
+    document.documentElement.style.setProperty('--sheet-height', '44px');
   }
   setTimeout(() => { if (mapInstance) mapInstance.resize(); }, 260);
 }
 
 function openInfo(index) {
-  const tr = allTerraces[index];
-  if (!tr) {
-    console.warn('openInfo: invalid terrace index', index, allTerraces.length);
-    return;
-  }
-
   selectedIndex = index;
+  const tr       = allTerraces[index];
   const sun      = getSun(tr.lat, tr.lon);
   const st       = effectiveStatus(tr);
   const typeName = T().types[tr.type] || tr.type;
@@ -1042,7 +965,7 @@ function openInfo(index) {
   // Report button
   const reportBtn = document.getElementById('report-btn');
   if (reportBtn) {
-    reportBtn.textContent = lang === 'fi' ? '🚫 Terassia ei ole olemassa' : '🚫 This terrace doesn\'t exist';
+    reportBtn.textContent = lang === 'fi' ? '🚫 Terassia ei ole olemassa' : '🚫 This terrace doesn't exist';
     reportBtn.onclick = () => {
       if (confirm(lang === 'fi'
         ? `Piilotetaanko "${tr.name}"? Voit palauttaa sen latauksella.`
@@ -1055,6 +978,8 @@ function openInfo(index) {
   document.getElementById('info-close').classList.add('visible');
   document.getElementById('info-panel').classList.add('open');
   renderPriceList();
+  // Load latest prices from backend (updates list when response arrives)
+  loadPricesFromBackend(tr);
 }
 
 function closeInfo() {
@@ -1065,13 +990,13 @@ function closeInfo() {
 }
 
 
-// 16. Notifications (Web Push works on iOS 16.4+ PWA, Android Chrome)
+// ── 16. Notifications (Web Push — works on iOS 16.4+ PWA, Android Chrome) ────
 //
 // Strategy:
-// 1. Ask for permission when user first taps monitor
-// 2. Use the Web Notifications API directly (no Capacitor plugin needed)
-// 3. On iOS: must be installed as a PWA (Add to Home Screen) for notifications to work
-// 4. Show in-app toast as fallback when notifications aren't available
+//  1. Ask for permission when user first taps monitor
+//  2. Use the Web Notifications API directly (no Capacitor plugin needed)
+//  3. On iOS: must be installed as a PWA (Add to Home Screen) for notifications to work
+//  4. Show in-app toast as fallback when notifications aren't available
 
 let notifPermission = 'default';
 
@@ -1101,7 +1026,7 @@ function sendNotification(title, body) {
 }
 
 
-// 17. Sun monitoring
+// ── 17. Sun monitoring ────────────────────────────────────────────────────────
 
 async function toggleMonitoring() {
   if (selectedIndex === null) return;
@@ -1136,9 +1061,9 @@ async function toggleMonitoring() {
 }
 
 
-// 18. Drink prices (localStorage + Supabase backend)
+// ── 18. Drink prices (localStorage + Supabase backend) ───────────────────────
 
-// Hidden terraces (community corrections)
+// ── Hidden terraces (community corrections) ──────────────────────────────
 function getHiddenTerraces() {
   try { return JSON.parse(localStorage.getItem('hidden_terraces') || '[]'); }
   catch(e) { return []; }
@@ -1185,7 +1110,7 @@ function venueKey(tr) {
     .replace(/[^a-zA-Z0-9_]/g, '_');
 }
 
-// Local prices (localStorage) always available offline
+// Local prices (localStorage) — always available offline
 function getLocalPrices(tr) {
   try { return JSON.parse(localStorage.getItem('prices_' + venueKey(tr)) || '{}'); }
   catch (e) { return {}; }
@@ -1204,7 +1129,7 @@ function saveCustomDrinks(tr, drinks) {
 }
 function allDrinksForVenue(tr) { return [...DEFAULT_DRINKS, ...getCustomDrinks(tr)]; }
 
-// Supabase sync push price update to backend
+// Supabase sync — push price update to backend
 async function syncPriceToBackend(tr, drinkId, price) {
   if (!supabaseReady) return;
   try {
@@ -1231,22 +1156,37 @@ async function syncPriceToBackend(tr, drinkId, price) {
   }
 }
 
-// Load prices from Supabase merges with local prices, remote wins on conflict
+// Load prices from Supabase — merges with local prices, remote wins on conflict
 async function loadPricesFromBackend(tr) {
   if (!supabaseReady) return;
   try {
-    const res  = await fetch(
-      `${SUPABASE_URL}/rest/v1/prices?venue_key=eq.${encodeURIComponent(venueKey(tr))}&select=drink_id,price,updated_at`,
-      { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/prices?venue_key=eq.${encodeURIComponent(venueKey(tr))}&select=drink_id,price,updated_at&order=updated_at.desc`,
+      {
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': `Bearer ${SUPABASE_ANON}`,
+          'Content-Type': 'application/json',
+        }
+      }
     );
+    if (!res.ok) { console.warn('Supabase load failed:', res.status); return; }
     const rows = await res.json();
-    if (!Array.isArray(rows)) return;
+    if (!Array.isArray(rows) || rows.length === 0) return;
     const local = getLocalPrices(tr);
     rows.forEach(row => {
-      local[row.drink_id] = { price: row.price, updated: new Date(row.updated_at).getTime() };
+      // Only update if backend price is newer than local
+      const localTs = local[row.drink_id]?.updated || 0;
+      const remoteTs = new Date(row.updated_at).getTime();
+      if (remoteTs > localTs) {
+        local[row.drink_id] = { price: parseFloat(row.price), updated: remoteTs };
+      }
     });
     saveLocalPrices(tr, local);
-    renderPriceList();
+    // Re-render price list if info panel is still showing this terrace
+    if (selectedIndex !== null && allTerraces[selectedIndex]?.name === tr.name) {
+      renderPriceList();
+    }
   } catch (e) {
     console.warn('Backend price load failed:', e);
   }
@@ -1368,9 +1308,9 @@ async function savePriceModal() {
 }
 
 
-// 19. Boot
+// ── 19. Boot ──────────────────────────────────────────────────────────────────
 
-// Draggable bottom sheet
+// ── Draggable bottom sheet ────────────────────────────────────────────────────
 
 (function() {
   let dragging = false, startY = 0, startH = 0;
@@ -1429,10 +1369,7 @@ async function savePriceModal() {
 })();
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    if (mapInstance) mapInstance.resize();
-    checkLocationAfterResume();
-  }
+  if (document.visibilityState === 'visible' && mapInstance) mapInstance.resize();
 });
 window.addEventListener('orientationchange', () => {
   setTimeout(() => { if (mapInstance) mapInstance.resize(); }, 300);
@@ -1447,13 +1384,6 @@ document.addEventListener('keydown', e => {
 supabaseReady = SUPABASE_URL !== 'https://YOUR_PROJECT.supabase.co';
 
 document.addEventListener('DOMContentLoaded', () => {
-  const infoPanel = document.getElementById('info-panel');
-  const infoClose = document.getElementById('info-close');
-  if (infoPanel && infoClose && infoClose.parentElement !== infoPanel) {
-    infoPanel.prepend(infoClose);
-  }
-
   document.getElementById('search-input').placeholder = T().searchPh;
   initMap();
 });
-
